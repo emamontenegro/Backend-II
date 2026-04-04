@@ -390,11 +390,10 @@ Authorization: Session Cookie
 
 ## 👨‍💻 Autor
 
-Desarrollado por **Emanuel Montenegro**
-
-- 📁 Portfolio: [link](https://emanuelmontenegro.dev)
-- 🐙 GitHub: [@emamontenegro](https://github.com/emamontenegro)
-- 💼 LinkedIn: [EmanuelMontenegro](https://linkedin.com/in/emanuel-montenegro-dev)
+- Author: [Emanuel Montenegro](https://emanuelmontenegro.dev)
+- Portfolio: [emanuelmontenegro.dev](https://emanuelmontenegro.dev)
+- LinkedIn: [linkedin.com/in/emanuelmontenegro](https://www.linkedin.com/in/emanuelmontenegro)
+- GitHub: [github.com/emanuelmontenegro](https://github.com/emanuelmontenegro)
 
 ---
 
