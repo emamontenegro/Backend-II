@@ -393,8 +393,8 @@ Authorization: Session Cookie
 Desarrollado por **Emanuel Montenegro**
 
 - 📁 Portfolio: [link](https://emanuelmontenegro.dev)
-- 🐙 GitHub: [@tunombre](https://github.com/emamontenegro)
-- 💼 LinkedIn: [tunombre](https://linkedin.com/in/emanuel-montenegro-dev)
+- 🐙 GitHub: [@emamontenegro](https://github.com/emamontenegro)
+- 💼 LinkedIn: [EmanuelMontenegro](https://linkedin.com/in/emanuel-montenegro-dev)
 
 ---
 
