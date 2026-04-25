@@ -93,9 +93,9 @@ PORT=3000
 NODE_ENV=development
 
 # ========== BASE DE DATOS ==========
-MONGODB_URI=mongodb://localhost:27017/nombre_base_datos
+MONGO_URI=mongodb://localhost:27017/nombre_base_datos
 # O para MongoDB Atlas:
-# MONGODB_URI=mongodb+srv://usuario:contraseña@cluster.mongodb.net/nombre_db
+# MONGO_URI=mongodb+srv://usuario:contraseña@cluster.mongodb.net/nombre_db
 
 # ========== SESIONES ==========
 SESSION_SECRET=tu_clave_secreta_muy_segura_aqui
@@ -105,7 +105,7 @@ SESSION_TIMEOUT=3600000
 BCRYPT_ROUNDS=10
 ```
 
-**Nota:** Mantén el `.env` en `.gitignore` para proteger tus credenciales.
+**Importante:** No guardes valores reales de usuario/contraseña o claves secretas en el repositorio. Usa `.env.example` como plantilla y mantén `.env` en `.gitignore`.
 
 ---
 
@@ -169,7 +169,6 @@ Content-Type: application/json
 
 {
   "username": "juan_perez",
-  "email": "juan@example.com",
   "password": "micontraseña123"
 }
 ```
@@ -177,12 +176,10 @@ Content-Type: application/json
 **Respuesta Exitosa (201)**
 ```json
 {
-  "success": true,
-  "message": "Usuario registrado exitosamente",
+  "message": "User created",
   "user": {
     "_id": "507f1f77bcf86cd799439011",
-    "username": "juan_perez",
-    "email": "juan@example.com"
+    "username": "juan_perez"
   }
 }
 ```
@@ -203,7 +200,7 @@ POST /api/users/login
 Content-Type: application/json
 
 {
-  "email": "juan@example.com",
+  "username": "juan_perez",
   "password": "micontraseña123"
 }
 ```
@@ -211,21 +208,14 @@ Content-Type: application/json
 **Respuesta Exitosa (200)**
 ```json
 {
-  "success": true,
-  "message": "Sesión iniciada correctamente",
-  "user": {
-    "_id": "507f1f77bcf86cd799439011",
-    "username": "juan_perez",
-    "email": "juan@example.com"
-  }
+  "message": "Login successful"
 }
 ```
 
 **Respuesta Error (401)**
 ```json
 {
-  "success": false,
-  "message": "Credenciales inválidas"
+  "message": "Invalid credentials"
 }
 ```
 
@@ -254,23 +244,14 @@ Authorization: Session Cookie
 ```
 
 **Respuesta Exitosa (200)**
-```json
-{
-  "success": true,
-  "message": "Bienvenido al dashboard",
-  "user": {
-    "_id": "507f1f77bcf86cd799439011",
-    "username": "juan_perez",
-    "email": "juan@example.com"
-  }
-}
+```text
+Welcome juan_perez
 ```
 
 **Respuesta Error - No Autenticado (401)**
 ```json
 {
-  "success": false,
-  "message": "Debes iniciar sesión para acceder a esta ruta"
+  "message": "Unauthorized"
 }
 ```
 
@@ -281,16 +262,16 @@ Authorization: Session Cookie
 ### ¿Cómo Funciona?
 
 1. **Registro (Register)**
-   - El usuario envía email, username y contraseña
+   - El usuario envía username y contraseña
    - La contraseña se **cifra con bcrypt** antes de guardarse en la BD
    - Se crea un documento en la colección de usuarios
 
 2. **Login**
-   - El usuario envía email y contraseña
-   - Se busca el usuario en la BD
+   - El usuario envía username y contraseña
+   - Se busca el usuario en la BD por el campo `username`
    - Se **compara** la contraseña ingresada con el hash almacenado
    - Si es válida, **express-session crea una sesión**
-   - La sesión se almacena en la memoria (o base de datos en producción)
+   - La sesión se almacena en **MongoDB** usando `connect-mongo`
    - Se envía un **cookie de sesión** al cliente
 
 3. **Acceso a Rutas Protegidas**

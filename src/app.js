@@ -1,11 +1,11 @@
 import express from 'express';
-import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
+import passport from 'passport';
 import connectDB from './config/db.js';
 import userRoutes from './routes/usersRoutes.js';
-import sessionConfig from './config/sessionConfig.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
+import './config/passport.js';
 
 dotenv.config();
 connectDB();
@@ -14,15 +14,14 @@ const app = express();
 
 // Middlewares
 app.use(express.json());
-app.use(cookieParser());
-app.use(session(sessionConfig));
+app.use(cookieParser(process.env.COOKIE_SECRET)); 
+app.use(passport.initialize()); 
 
-// usar rutas
+// Rutas
 app.use('/api/users', userRoutes);
 app.use('/dashboard', dashboardRoutes);
 
-// Server
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 3000;
 const httpserver = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

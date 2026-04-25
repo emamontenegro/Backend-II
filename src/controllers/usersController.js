@@ -1,70 +1,73 @@
 import { User } from "../models/User.js";
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
-// Get all users
 export const register = async (req, res) => {
   try {
     const { username, password } = req.body;  
     const exists = await User.findOne({ username });
+    if (exists) return res.status(400).json({ message: "El usuario ya existe" });
   
-    if (exists) {
-      return res.status(400).json({ message: "User already exists" });
-    }
-  
-    // Hashear password
     const hashedPassword = await bcrypt.hash(password, 10);  
-    const newUser = await User.create({ username, password: hashedPassword });
-    res.status(201).json({
-      message: "User created",
-      user: newUser
+    const newUser = await User.create({ 
+      username, 
+      password: hashedPassword 
     });
-  
+
+    res.status(201).json({
+      message: "Usuario creado con éxito",
+      user: { id: newUser._id, username: newUser.username }
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error creating user" });
+    res.status(500).json({ message: "Error al crear el usuario" });
   }
 };
 
-// Login
 export const login = async (req, res) => {
   try {
-    // input validation
-    const { username, password } = req.body;  
-    
-    if (!username || !password) {
-      return res.status(400).json({ message: "Username and password are required" });
-    }    
-    const user = await User.findOne({ username });    
-    
-    if (!user) {
-      return res.status(401).json({ message: "Invalid credentials" });
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ message: "Usuario y contraseña requeridos" });
+
+    const user = await User.findOne({ username });
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ message: "Credenciales inválidas" });
     }
 
-    // password compare
-    const isMatch = await bcrypt.compare(password, user.password);  
-    if (!isMatch) {
-      return res.status(401).json({ message: "Invalid credentials" });
-    }
-    
-    req.session.user = {
-      id: user._id,
-      username: user.username
-    };  
-    return res.status(200).json({ message: "Login successful" });  
-  
+    const token = jwt.sign(
+      { id: user._id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // guardamos el token en una cookie segura y firmada
+    res.cookie('currentUser', token, {
+      httpOnly: true,
+      signed: true, 
+      maxAge: 3600000, 
+      sameSite: 'strict'
+    });
+
+    return res.status(200).json({ 
+      message: "Login exitoso",
+      token: token 
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Error en el servidor" });
   }
 };
 
-// Logout
+// Endpoint /current
+export const getCurrentUser = (req, res) => {
+  res.status(200).json({ 
+    message: "Usuario actual obtenido desde el token",
+    user: req.user 
+  });
+};
+
 export const logout = (req, res) => {
-  req.session.destroy(err => {
-    if (err) {
-      return res.status(500).json({ message: "Error logging out" });
-    }
-    res.clearCookie('connect.sid'); // elimina cookie de sesión
-    res.status(200).json({ message: "Logged out" });
+  // Limpiamos la cookie al cerrar sesión
+  res.clearCookie('currentUser');
+  res.status(200).json({ 
+    message: "Logout exitoso. Cookie eliminada." 
   });
 };
