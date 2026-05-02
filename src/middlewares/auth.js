@@ -25,3 +25,13 @@ export const isAuthenticated = (req, res, next) => {
     return res.status(403).json({ message: 'Token inválido o expirado.' });
   }
 };
+
+// Middleware para verificar si el usuario es admin
+export const isAdmin = (req, res, next) => {
+  // isAuthenticated ya puso la info en req.user
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({ message: 'Acceso denegado. Se requieren permisos de administrador.' });
+  }
+};

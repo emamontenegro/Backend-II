@@ -3,12 +3,12 @@ import passport from 'passport';
 import jwt from 'jsonwebtoken';
 import { User } from "../models/User.js";
 import { login, logout, register, getCurrentUser } from "../controllers/usersController.js";
-import { isAuthenticated } from "../middlewares/auth.js";
+import { isAdmin, isAuthenticated } from "../middlewares/auth.js";
 
 const router = Router();
 
 // Obtener todos los usuarios 
-router.get('/', isAuthenticated, async (req, res) => {
+router.get('/', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const users = await User.find({}, '-password'); 
     res.status(200).json(users);
@@ -42,7 +42,7 @@ router.get('/auth/google/callback',
   (req, res) => {
     // Generamos un token JWT
     const token = jwt.sign(
-      { id: req.user._id, username: req.user.username },
+      { id: req.user._id, username: req.user.username, email: req.user.email, password: req.user.password, role: req.user.role },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );

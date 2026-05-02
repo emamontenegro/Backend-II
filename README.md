@@ -1,6 +1,6 @@
-# 🚀 Backend API - Node.js & Express
+# 🚀 Backend API - Node.js, Express y MongoDB
 
-Una aplicación backend robusta y segura desarrollada con Node.js, Express y MongoDB. Implementa autenticación de usuarios con sesiones seguras, manejo de contraseñas encriptadas y una arquitectura modular lista para producción.
+Servidor backend con autenticación de usuarios, Google OAuth, JWT en cookies firmadas, sistema de roles y rutas protegidas. El proyecto está organizado en capas para facilitar la gestión de usuarios, permisos y autenticación.
 
 ---
 
@@ -13,71 +13,71 @@ Una aplicación backend robusta y segura desarrollada con Node.js, Express y Mon
 - [Cómo Ejecutar](#cómo-ejecutar)
 - [Estructura del Proyecto](#estructura-del-proyecto)
 - [Endpoints](#endpoints)
+- [Sistema de Roles](#sistema-de-roles)
+- [Script de admin](#script-de-admin)
 - [Autenticación y Sesiones](#autenticación-y-sesiones)
-- [Mejoras Futuras](#mejoras-futuras)
+- [Actualización del día](#actualización-del-día)
+- [👨‍💻 Autor](#👨‍💻-autor)
 
 ---
 
 ## ✨ Características
 
-✅ **Autenticación segura** - Sistema de login/registro con sesiones  
-✅ **Cifrado de contraseñas** - Implementado con bcrypt  
-✅ **Base de datos NoSQL** - MongoDB con Mongoose ODM  
-✅ **Manejo de sesiones** - express-session con persistencia  
-✅ **Gestión de cookies** - cookie-parser para cookies seguras  
-✅ **Variables de entorno** - Configuración segura con dotenv  
-✅ **Estructura modular** - Separación de responsabilidades (MVC)  
-✅ **Rutas protegidas** - Middlewares de autenticación  
+✅ Autenticación con JWT y cookies firmadas
+✅ Registro y login con bcrypt para contraseñas
+✅ Google OAuth 2.0 con Passport
+✅ Sistema de roles `user` / `admin`
+✅ Ruta protegida `/dashboard`
+✅ Endpoint admin para listar usuarios
+✅ Script de creación de admin (`scripts/createAdmin.js`)
+✅ Separación en controladores, rutas y middlewares
 
 ---
 
 ## 🛠️ Tecnologías Utilizadas
 
-| Tecnología | Versión | Propósito |
-|-----------|---------|----------|
-| **Node.js** | 16+ | Runtime de JavaScript |
-| **Express** | ^4.18.0 | Framework web |
-| **MongoDB** | 5+ | Base de datos |
-| **Mongoose** | ^7.0.0 | ODM para MongoDB |
-| **bcrypt** | ^5.0.0 | Hashing de contraseñas |
-| **express-session** | ^1.17.0 | Gestión de sesiones |
-| **cookie-parser** | ^1.4.6 | Manejo de cookies |
-| **dotenv** | ^16.0.0 | Variables de entorno |
+| Tecnología | Propósito |
+|-----------|----------|
+| Node.js | Runtime de JavaScript |
+| Express | Framework web |
+| MongoDB | Base de datos NoSQL |
+| Mongoose | ODM para MongoDB |
+| bcrypt | Hash de contraseñas |
+| jsonwebtoken | JWT para autenticación |
+| cookie-parser | Manejo de cookies firmadas |
+| passport | Autenticación de terceros |
+| passport-google-oauth20 | Google OAuth 2.0 |
+| dotenv | Variables de entorno |
 
 ---
 
 ## 📦 Instalación
 
 ### Prerrequisitos
-- **Node.js** v16 o superior
-- **npm** o **yarn**
-- **MongoDB** corriendo localmente o en la nube (MongoDB Atlas)
+- Node.js v16 o superior
+- npm o yarn
+- MongoDB local o en la nube
 
 ### Pasos
 
-1. **Clona el repositorio**
+1. Clona el repositorio
 ```bash
 git clone https://github.com/tuusuario/nombre-repo.git
 cd nombre-repo
 ```
 
-2. **Instala las dependencias**
+2. Instala las dependencias
 ```bash
 npm install
 ```
 
-3. **Configura las variables de entorno**
+3. Configura las variables de entorno
 ```bash
-# Copia el archivo ejemplo
 cp .env.example .env
-
-# Edita el archivo .env con tus valores
-nano .env
 ```
 
-4. **Verifica la conexión a MongoDB**
+4. Inicia MongoDB
 ```bash
-# Asegúrate de que MongoDB está corriendo
 mongod
 ```
 
@@ -85,50 +85,33 @@ mongod
 
 ## 🔐 Variables de Entorno
 
-Crea un archivo `.env` en la raíz del proyecto con la siguiente estructura:
+Crea un archivo `.env` en la raíz del proyecto con los siguientes valores:
 
 ```env
-# ========== SERVIDOR ==========
 PORT=3000
 NODE_ENV=development
-
-# ========== BASE DE DATOS ==========
 MONGO_URI=mongodb://localhost:27017/nombre_base_datos
-# O para MongoDB Atlas:
-# MONGO_URI=mongodb+srv://usuario:contraseña@cluster.mongodb.net/nombre_db
-
-# ========== SESIONES ==========
-SESSION_SECRET=tu_clave_secreta_muy_segura_aqui
-SESSION_TIMEOUT=3600000
-
-# ========== SEGURIDAD ==========
-BCRYPT_ROUNDS=10
+JWT_SECRET=tu_jwt_secret
+COOKIE_SECRET=tu_cookie_secret
+GOOGLE_CLIENT_ID=tu_google_client_id
+GOOGLE_CLIENT_SECRET=tu_google_client_secret
 ```
-
-**Importante:** No guardes valores reales de usuario/contraseña o claves secretas en el repositorio. Usa `.env.example` como plantilla y mantén `.env` en `.gitignore`.
 
 ---
 
 ## ▶️ Cómo Ejecutar
 
-### Modo Desarrollo
+### Desarrollo
 ```bash
 npm run dev
 ```
-*(Requiere nodemon instalado)*
 
-### Modo Producción
+### Producción
 ```bash
 npm start
 ```
 
-### Con nodemon (desarrollo automático)
-```bash
-npm install --save-dev nodemon
-npx nodemon src/app.js
-```
-
-La aplicación estará disponible en: **http://localhost:3000**
+La aplicación se ejecuta en: **http://localhost:3000**
 
 ---
 
@@ -136,33 +119,34 @@ La aplicación estará disponible en: **http://localhost:3000**
 
 ```
 backend-2/
+├── scripts/
+│   └── createAdmin.js        # Script para crear usuario admin
 ├── src/
-│   ├── app.js                 # Archivo principal de Express
+│   ├── app.js               # Entrada de la aplicación
 │   ├── config/
-│   │   ├── db.js             # Conexión a MongoDB
-│   │   └── sessionConfig.js   # Configuración de sesiones
+│   │   ├── db.js            # Conexión a MongoDB
+│   │   ├── passport.js      # Configuración de Google OAuth
+│   │   └── sessionConfig.js # Configuración de sesiones (no usada en app actual)
 │   ├── controllers/
-│   │   └── usersController.js # Lógica de usuarios
+│   │   └── usersController.js # Lógica de usuarios y auth
 │   ├── middlewares/
-│   │   └── auth.js           # Middleware de autenticación
+│   │   └── auth.js          # Validación de JWT y permisos
 │   ├── models/
-│   │   └── User.js           # Modelo de usuario (Mongoose)
+│   │   └── User.js          # Modelo de usuario
 │   └── routes/
-│       ├── usersRoutes.js    # Rutas de autenticación
-│       └── dashboardRoutes.js # Rutas protegidas
-├── .env.example              # Plantilla de variables
-├── .gitignore               # Archivos ignorados por Git
-├── package.json             # Dependencias del proyecto
-└── README.md               # Este archivo
+│       ├── usersRoutes.js   # Rutas de auth, Google OAuth y usuarios
+│       └── dashboardRoutes.js # Ruta protegida dashboard
+├── .env.example             # Ejemplo de variables de entorno
+├── .gitignore               # Archivos ignorados
+├── package.json            # Dependencias y scripts
+└── README.md               # Documentación
 ```
 
 ---
 
 ## 🔌 Endpoints
 
-### **Autenticación de Usuarios**
-
-#### 📝 Registrar Usuario
+### Registro de usuario
 ```http
 POST /api/users/register
 Content-Type: application/json
@@ -173,28 +157,29 @@ Content-Type: application/json
 }
 ```
 
-**Respuesta Exitosa (201)**
+**Respuesta 201**
 ```json
 {
-  "message": "User created",
+  "message": "Usuario creado con éxito",
   "user": {
-    "_id": "507f1f77bcf86cd799439011",
-    "username": "juan_perez"
+    "id": "507f1f77bcf86cd799439011",
+    "username": "juan_perez",
+    "email": "juan_perez@gmail.com",
+    "role": "user"
   }
 }
 ```
 
-**Respuesta Error (400)**
+**Respuesta 400**
 ```json
 {
-  "success": false,
   "message": "El usuario ya existe"
 }
 ```
 
 ---
 
-#### 🔓 Iniciar Sesión
+### Login de usuario
 ```http
 POST /api/users/login
 Content-Type: application/json
@@ -205,167 +190,148 @@ Content-Type: application/json
 }
 ```
 
-**Respuesta Exitosa (200)**
+**Respuesta 200**
 ```json
 {
-  "message": "Login successful"
+  "message": "Login exitoso",
+  "token": "<jwt_token>"
 }
 ```
 
-**Respuesta Error (401)**
-```json
-{
-  "message": "Invalid credentials"
-}
-```
+El token se guarda en la cookie firmada `currentUser` y también se devuelve en el body.
 
 ---
 
-#### ✌️ Cerrar Sesión
+### Logout
 ```http
 POST /api/users/logout
-Authorization: Session Cookie
 ```
 
-**Respuesta Exitosa (200)**
+**Respuesta 200**
 ```json
 {
-  "success": true,
-  "message": "Sesión cerrada correctamente"
+  "message": "Logout exitoso. Cookie eliminada."
 }
 ```
 
 ---
 
-#### 🛡️ Dashboard (Ruta Protegida)
+### Usuario actual
 ```http
-GET /dashboard
-Authorization: Session Cookie
+GET /api/users/current
+Authorization: Bearer <jwt_token>
 ```
 
-**Respuesta Exitosa (200)**
-```text
-Welcome juan_perez
-```
-
-**Respuesta Error - No Autenticado (401)**
+**Respuesta 200**
 ```json
 {
-  "message": "Unauthorized"
+  "message": "Usuario actual obtenido desde el token",
+  "user": {
+    "id": "507f1f77bcf86cd799439011",
+    "username": "juan_perez",
+    "email": "juan_perez@gmail.com",
+    "role": "user"
+  }
 }
 ```
+
+---
+
+### Listar usuarios (solo admin)
+```http
+GET /api/users
+Authorization: Bearer <jwt_token>
+```
+
+**Respuesta 200**
+```json
+[
+  {
+    "_id": "507f1f77bcf86cd799439011",
+    "username": "juan_perez",
+    "email": "juan_perez@gmail.com",
+    "role": "user"
+  }
+]
+```
+
+---
+
+### Google OAuth
+
+#### Iniciar Google OAuth
+```http
+GET /api/users/auth/google
+```
+
+#### Callback de Google
+```http
+GET /api/users/auth/google/callback
+```
+
+Después del login con Google, se genera un JWT y se guarda en la cookie `currentUser`.
+
+---
+
+### Dashboard protegido
+```http
+GET /dashboard
+Authorization: Bearer <jwt_token>
+```
+
+**Respuesta 200**
+```text
+Bienvenido juan_perez. Tu rol es user. Esta es tu dashboard.
+```
+
+---
+
+## 🛡️ Sistema de Roles
+
+- `user`: acceso a rutas básicas y dashboard protegido.
+- `admin`: acceso a rutas administrativas como `GET /api/users`.
+- La ruta `/api/users` está protegida con `isAuthenticated` + `isAdmin`.
+- La ruta `/dashboard` está protegida con `isAuthenticated`.
+
+---
+
+## 🧑‍💼 Script de admin
+
+Para crear un administrador ejecuta:
+
+```bash
+node scripts/createAdmin.js
+```
+
+El script crea un usuario con:
+- `username`: `admin_general`
+- `password`: `admin123`
+- `role`: `admin`
 
 ---
 
 ## 🔐 Autenticación y Sesiones
 
-### ¿Cómo Funciona?
-
-1. **Registro (Register)**
-   - El usuario envía username y contraseña
-   - La contraseña se **cifra con bcrypt** antes de guardarse en la BD
-   - Se crea un documento en la colección de usuarios
-
-2. **Login**
-   - El usuario envía username y contraseña
-   - Se busca el usuario en la BD por el campo `username`
-   - Se **compara** la contraseña ingresada con el hash almacenado
-   - Si es válida, **express-session crea una sesión**
-   - La sesión se almacena en **MongoDB** usando `connect-mongo`
-   - Se envía un **cookie de sesión** al cliente
-
-3. **Acceso a Rutas Protegidas**
-   - El middleware `auth.js` **verifica la sesión** en cada petición
-   - Si existe una sesión válida, permite acceder
-   - Si no, retorna un error 401
-
-4. **Logout**
-   - Se **destruye la sesión** en el servidor
-   - Se **elimina el cookie** del cliente
-   - El usuario debe hacer login nuevamente
-
-### Flujo de Autenticación
-```
-┌─────────────────────────────────────────────────────┐
-│ 1. Usuario envía credenciales (POST /api/users/login)
-└──────────────┬──────────────────────────────────────┘
-               ↓
-┌─────────────────────────────────────────────────────┐
-│ 2. Servidor verifica contraseña con bcrypt.compare()
-└──────────────┬──────────────────────────────────────┘
-               ↓
-┌─────────────────────────────────────────────────────┐
-│ 3. express-session crea sesión (req.session)
-└──────────────┬──────────────────────────────────────┘
-               ↓
-┌─────────────────────────────────────────────────────┐
-│ 4. Se envía cookie al cliente (Set-Cookie header)
-└──────────────┬──────────────────────────────────────┘
-               ↓
-┌─────────────────────────────────────────────────────┐
-│ 5. Cliente envía cookie en próximas peticiones
-└──────────────┬──────────────────────────────────────┘
-               ↓
-┌─────────────────────────────────────────────────────┐
-│ 6. auth.js valida sesión (middleware)
-└──────────────┬──────────────────────────────────────┘
-               ↓
-┌─────────────────────────────────────────────────────┐
-│ 7. Acceso a ruta protegida o error 401
-└─────────────────────────────────────────────────────┘
-```
-
-### Seguridad
-
-🔒 **Contraseñas**
-- Se cifran con **bcrypt** (10 rounds por defecto)
-- Nunca se almacenan en texto plano
-- Se comparan con `bcrypt.compare()` en cada login
-
-🗝️ **Sesiones**
-- El secret se configura en `.env`
-- Los cookies son HTTP-only (no accesibles desde JavaScript)
-- Las sesiones expiran después de `SESSION_TIMEOUT` ms
+- La app usa JWT y cookies firmadas en lugar de sesiones tradicionales.
+- `isAuthenticated` valida el token JWT desde el header `Authorization` o desde la cookie `currentUser`.
+- `isAdmin` permite solo usuarios con `role: admin`.
+- El modelo `User` incluye `username`, `password`, `email`, `googleId` y `role`.
+- Google OAuth usa Passport para crear o autenticar usuarios con Google.
 
 ---
 
-## 🚀 Mejoras Futuras
+## 📌 Actualización del día
 
-### Seguridad Avanzada
-- [ ] Implementar **JWT (JSON Web Tokens)** como alternativa a sesiones
-- [ ] Agregar **CORS** con configuración estricta
-- [ ] Validación de entrada con **express-validator**
-- [ ] Limitar intentos de login con **express-rate-limit**
-- [ ] Implementar **HTTPS** en producción
-
-### Funcionalidades
-- [ ] Recuperación de contraseña por email
-- [ ] Autenticación con Google/GitHub (OAuth 2.0)
-- [ ] Sistema de roles y permisos
-- [ ] Administración de usuarios (CRUD completo)
-- [ ] Logs de auditoría
-
-### Base de Datos
-- [ ] Índices en campos frecuentemente consultados
-- [ ] Migración a base de datos en producción (MongoDB Atlas)
-- [ ] Backups automáticos
-
-### DevOps & Deployment
-- [ ] Dockerizar la aplicación
-- [ ] CI/CD con GitHub Actions
-- [ ] Deploy en **Heroku**, **Vercel** o **Railway**
-- [ ] Monitoreo con **Sentry** o **LogRocket**
-- [ ] Testing unitario con **Jest**
-
----
-
-## 📚 Recursos Útiles
-
-- [Documentación de Express](https://expressjs.com/)
-- [Documentación de Mongoose](https://mongoosejs.com/)
-- [bcrypt npm](https://www.npmjs.com/package/bcrypt)
-- [express-session npm](https://www.npmjs.com/package/express-session)
-- [OWASP Web Security](https://owasp.org/)
+Hoy se agregó y actualizó:
+- Sistema de roles `user` / `admin`
+- Script `scripts/createAdmin.js` para crear admin
+- Middleware `isAuthenticated` para rutas protegidas
+- Middleware `isAdmin` para rutas admin
+- Endpoint `/api/users/current` para obtener el usuario autenticado
+- Ruta admin `/api/users` para listar usuarios
+- Ruta `/dashboard` protegida
+- Google OAuth con Passport y JWT en cookie
+- Autenticación de login/registro con bcrypt y JWT
 
 ---
 
@@ -380,20 +346,5 @@ Welcome juan_perez
 
 ## 📄 Licencia
 
-Este proyecto está bajo la licencia **MIT**. Ver archivo `LICENSE` para más detalles.
-
----
-
-## 🤝 Contribuciones
-
-¿Encontraste un bug o tienes una idea? ¡Las contribuciones son bienvenidas!
-
-1. Haz un fork del proyecto
-2. Crea una rama (`git checkout -b feature/AmazingFeature`)
-3. Commits de tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
-
----
-
-**⭐ Si este proyecto te fue útil, considera darle una estrella en GitHub!**
+Este proyecto está bajo la licencia **MIT**.
+EOF
