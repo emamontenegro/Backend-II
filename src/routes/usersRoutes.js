@@ -20,7 +20,7 @@ router.get('/', isAuthenticated, isAdmin, async (req, res) => {
 // Autenticación tradicional
 router.post('/register', register);
 router.post('/login', login);
-router.post('/logout', logout);
+router.post('/logout', isAuthenticated, logout);
 router.get('/current', isAuthenticated, getCurrentUser);
 
 // Google OAuth
