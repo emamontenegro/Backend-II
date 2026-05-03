@@ -18,8 +18,8 @@ app.use(cookieParser(process.env.COOKIE_SECRET));
 app.use(passport.initialize()); 
 
 // Rutas
-app.use('/api/users', userRoutes);
-app.use('/dashboard', dashboardRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/dashboard', dashboardRoutes);
 
 const PORT = process.env.PORT || 3000;
 const httpserver = app.listen(PORT, () => {
