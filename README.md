@@ -30,6 +30,7 @@ Servidor backend con autenticación de usuarios, Google OAuth, JWT en cookies fi
 ✅ Ruta protegida `/dashboard`
 ✅ Endpoint admin para listar usuarios
 ✅ Script de creación de admin (`scripts/createAdmin.js`)
+✅ Colección Postman `Backend-2-API.postman_collection.json`
 ✅ Separación en controladores, rutas y middlewares
 
 ---
@@ -134,6 +135,7 @@ backend-2/
 │   ├── models/
 │   │   └── User.js          # Modelo de usuario
 │   └── routes/
+│       ├── index.js         # Agrupa rutas de usuarios y dashboard
 │       ├── usersRoutes.js   # Rutas de auth, Google OAuth y usuarios
 │       └── dashboardRoutes.js # Ruta protegida dashboard
 ├── .env.example             # Ejemplo de variables de entorno
@@ -323,6 +325,8 @@ El script crea un usuario con:
 ## 📌 Actualización del día
 
 Hoy se agregó y actualizó:
+- Nueva ruta principal `src/routes/index.js` para agrupar routes
+- Collection Postman `Backend-2-API.postman_collection.json`
 - Sistema de roles `user` / `admin`
 - Script `scripts/createAdmin.js` para crear admin
 - Middleware `isAuthenticated` para rutas protegidas

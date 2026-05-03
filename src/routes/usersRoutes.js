@@ -7,7 +7,7 @@ import { isAdmin, isAuthenticated } from "../middlewares/auth.js";
 
 const router = Router();
 
-// Obtener todos los usuarios 
+// Obtener todos los usuarios (Protegido para admins)
 router.get('/', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const users = await User.find({}, '-password'); 
@@ -17,37 +17,35 @@ router.get('/', isAuthenticated, isAdmin, async (req, res) => {
   }
 });
 
-// Registro, Login, Logout
+// Autenticación tradicional
 router.post('/register', register);
 router.post('/login', login);
 router.post('/logout', logout);
-
-// Endpoint para obtener el usuario actual autenticado
 router.get('/current', isAuthenticated, getCurrentUser);
 
-// Rutas de autenticación con Google OAuth
-
-// Iniciar el flujo
+// Google OAuth
 router.get('/auth/google', passport.authenticate('google', { 
   scope: ['profile', 'email'], 
   session: false 
 }));
 
-// Callback de Google
 router.get('/auth/google/callback', 
   passport.authenticate('google', { 
     failureRedirect: '/api/users/login', 
     session: false 
   }),
   (req, res) => {
-    // Generamos un token JWT
     const token = jwt.sign(
-      { id: req.user._id, username: req.user.username, email: req.user.email, password: req.user.password, role: req.user.role },
+      { 
+        id: req.user._id, 
+        username: req.user.username, 
+        email: req.user.email, 
+        role: req.user.role 
+      },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    // Guardamos el token en la COOKIE para el navegador
     res.cookie('currentUser', token, {
       httpOnly: true,
       signed: true,
@@ -56,7 +54,6 @@ router.get('/auth/google/callback',
       path: '/'
     });
 
-    // Enviamos una respuesta que redirige al usuario a la página de perfil o dashboard
     res.send(`
       <script>
         alert("Autenticación exitosa. Redirigiendo...");

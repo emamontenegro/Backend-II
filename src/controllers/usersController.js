@@ -2,6 +2,7 @@ import { User } from "../models/User.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
+// Controladores para registro
 export const register = async (req, res) => {
   try {
     const { username, password } = req.body;  
@@ -17,13 +18,14 @@ export const register = async (req, res) => {
 
     res.status(201).json({
       message: "Usuario creado con éxito",
-      user: { id: newUser._id, username: newUser.username, email: newUser.email,password: newUser.password, role: newUser.role }
+      user: { id: newUser._id, username: newUser.username, email: newUser.email, role: newUser.role }
     });
   } catch (error) {
     res.status(500).json({ message: "Error al crear el usuario" });
   }
 };
 
+// Controladores para login
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -35,12 +37,11 @@ export const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, username: user.username, email: user.email, password: user.password, role: user.role },
+      { id: user._id, username: user.username, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    // guardamos el token en una cookie segura y firmada
     res.cookie('currentUser', token, {
       httpOnly: true,
       signed: true, 
@@ -48,27 +49,19 @@ export const login = async (req, res) => {
       sameSite: 'strict'
     });
 
-    return res.status(200).json({ 
-      message: "Login exitoso",
-      token: token 
-    });
+    return res.status(200).json({ message: "Login exitoso", token: token });
   } catch (error) {
     res.status(500).json({ message: "Error en el servidor" });
   }
 };
 
-// Endpoint /current
+// Controlador para obtener el usuario actual desde el token
 export const getCurrentUser = (req, res) => {
-  res.status(200).json({ 
-    message: "Usuario actual obtenido desde el token",
-    user: req.user 
-  });
+  res.status(200).json({ message: "Usuario actual obtenido desde el token", user: req.user });
 };
 
+// Controlador para logout
 export const logout = (req, res) => {
-  // Limpiamos la cookie al cerrar sesión
   res.clearCookie('currentUser');
-  res.status(200).json({ 
-    message: "Logout exitoso. Cookie eliminada." 
-  });
+  res.status(200).json({ message: "Logout exitoso. Cookie eliminada." });
 };
