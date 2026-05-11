@@ -2,6 +2,13 @@ import { User } from "../models/User.js";
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
+const CURRENT_USER_COOKIE_OPTS = {
+  path: '/',
+  httpOnly: true,
+  signed: true,
+  sameSite: 'lax'
+};
+
 // Controladores para registro
 export const register = async (req, res) => {
   try {
@@ -43,10 +50,8 @@ export const login = async (req, res) => {
     );
 
     res.cookie('currentUser', token, {
-      httpOnly: true,
-      signed: true, 
-      maxAge: 3600000, 
-      sameSite: 'strict'
+      ...CURRENT_USER_COOKIE_OPTS,
+      maxAge: 3600000
     });
 
     return res.status(200).json({ message: "Login exitoso", token: token });
@@ -62,6 +67,6 @@ export const getCurrentUser = (req, res) => {
 
 // Controlador para logout
 export const logout = (req, res) => {
-  res.clearCookie('currentUser');
+  res.clearCookie('currentUser', CURRENT_USER_COOKIE_OPTS);
   res.status(200).json({ message: "Logout exitoso. Cookie eliminada." });
 };

@@ -45,9 +45,9 @@
               "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/users/register",
+              "raw": "{{base_url}}/api/v1/users/register",
               "host": ["{{base_url}}"],
-              "path": ["api", "users", "register"]
+              "path": ["api", "v1", "users", "register"]
             },
             "description": "Registrar un nuevo usuario"
           },
@@ -68,9 +68,9 @@
               "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/users/login",
+              "raw": "{{base_url}}/api/v1/users/login",
               "host": ["{{base_url}}"],
-              "path": ["api", "users", "login"]
+              "path": ["api", "v1", "users", "login"]
             },
             "description": "Iniciar sesión y obtener token JWT. El token se devuelve en la respuesta y también se almacena en una cookie."
           },
@@ -82,9 +82,9 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/users/logout",
+              "raw": "{{base_url}}/api/v1/users/logout",
               "host": ["{{base_url}}"],
-              "path": ["api", "users", "logout"]
+              "path": ["api", "v1", "users", "logout"]
             },
             "description": "Cerrar sesión y eliminar la cookie de autenticación"
           },
@@ -106,9 +106,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/users/current",
+              "raw": "{{base_url}}/api/v1/users/current",
               "host": ["{{base_url}}"],
-              "path": ["api", "users", "current"]
+              "path": ["api", "v1", "users", "current"]
             },
             "description": "Obtener información del usuario actual desde el token JWT (requiere autenticación)"
           },
@@ -130,9 +130,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/users",
+              "raw": "{{base_url}}/api/v1/users",
               "host": ["{{base_url}}"],
-              "path": ["api", "users"]
+              "path": ["api", "v1", "users"]
             },
             "description": "Obtener todos los usuarios. Requiere autenticación y rol de administrador"
           },
@@ -144,9 +144,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/users/auth/google",
+              "raw": "{{base_url}}/api/v1/users/auth/google",
               "host": ["{{base_url}}"],
-              "path": ["api", "users", "auth", "google"]
+              "path": ["api", "v1", "users", "auth", "google"]
             },
             "description": "Iniciar autenticación con Google OAuth. Redirige a la página de login de Google"
           },
@@ -158,9 +158,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/users/auth/google/callback",
+              "raw": "{{base_url}}/api/v1/users/auth/google/callback",
               "host": ["{{base_url}}"],
-              "path": ["api", "users", "auth", "google", "callback"]
+              "path": ["api", "v1", "users", "auth", "google", "callback"]
             },
             "description": "Callback de autenticación con Google OAuth. Maneja la respuesta después de autenticar con Google"
           },
@@ -187,9 +187,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/dashboard",
+              "raw": "{{base_url}}/api/v1/dashboard",
               "host": ["{{base_url}}"],
-              "path": ["dashboard"]
+              "path": ["api", "v1", "dashboard"]
             },
             "description": "Acceder al dashboard. Requiere autenticación JWT"
           },

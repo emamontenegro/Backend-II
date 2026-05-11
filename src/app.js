@@ -1,14 +1,13 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
 import passport from 'passport';
 import connectDB from './config/db.js';
 import userRoutes from './routes/usersRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import './config/passport.js';
 
-dotenv.config();
 connectDB();
 
 const app = express();

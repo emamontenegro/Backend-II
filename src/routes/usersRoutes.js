@@ -3,12 +3,12 @@ import passport from 'passport';
 import jwt from 'jsonwebtoken';
 import { User } from "../models/User.js";
 import { login, logout, register, getCurrentUser } from "../controllers/usersController.js";
-import { isAdmin, isAuthenticated } from "../middlewares/auth.js";
+import { requireRole, isAuthenticated } from "../middlewares/auth.js";
 
 const router = Router();
 
 // Obtener todos los usuarios (Protegido para admins)
-router.get('/', isAuthenticated, isAdmin, async (req, res) => {
+router.get('/', isAuthenticated, requireRole('admin'), async (req, res) => {
   try {
     const users = await User.find({}, '-password'); 
     res.status(200).json(users);
@@ -31,7 +31,7 @@ router.get('/auth/google', passport.authenticate('google', {
 
 router.get('/auth/google/callback', 
   passport.authenticate('google', { 
-    failureRedirect: '/api/users/login', 
+    failureRedirect: '/api/v1/users/login', 
     session: false 
   }),
   (req, res) => {
@@ -57,7 +57,7 @@ router.get('/auth/google/callback',
     res.send(`
       <script>
         alert("Autenticación exitosa. Redirigiendo...");
-        window.location.href = "/api/users/current";
+        window.location.href = "/api/v1/users/current";
       </script>
     `);
   }

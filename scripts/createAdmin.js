@@ -1,8 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import { User } from '../src/models/User.js';
-import dotenv from 'dotenv';
-dotenv.config();
 
 const createAdmin = async () => {
   try {

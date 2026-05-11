@@ -26,12 +26,14 @@ export const isAuthenticated = (req, res, next) => {
   }
 };
 
-// Middleware para verificar si el usuario es admin
-export const isAdmin = (req, res, next) => {
-  // isAuthenticated ya puso la info en req.user
-  if (req.user && req.user.role === 'admin') {
-    next();
-  } else {
-    res.status(403).json({ message: 'Acceso denegado. Se requieren permisos de administrador.' });
+export const requireRole = (...allowedRoles) => (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Acceso denegado. No hay token.' });
   }
+  if (!allowedRoles.includes(req.user.role)) {
+    return res.status(403).json({ message: 'Acceso denegado. Permisos insuficientes.' });
+  }
+  next();
 };
+
+export const isAdmin = requireRole('admin');
