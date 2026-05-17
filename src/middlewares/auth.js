@@ -1,37 +1,39 @@
 import jwt from 'jsonwebtoken';
 
-export const isAuthenticated = (req, res, next) => {
-  let token = null;
-
-  // Buscar en el Header Authorization
+const extractToken = (req) => {
   const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.split(' ')[1];
-  } 
-  // Si no hay header, buscar en la cookie firmada
-  else if (req.signedCookies && req.signedCookies.currentUser) {
-    token = req.signedCookies.currentUser;
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1];
   }
+  if (req.cookies?.authToken) {
+    return req.cookies.authToken;
+  }
+  return null;
+};
+
+export const isAuthenticated = (req, res, next) => {
+  const token = extractToken(req);
 
   if (!token) {
-    return res.status(401).json({ message: 'Acceso denegado. No hay token.' });
+    return res.status(401).json({ message: 'No autenticado. Token no proporcionado.' });
   }
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.auth = decoded;
     req.user = decoded;
     next();
-  } catch (error) {
-    return res.status(403).json({ message: 'Token inválido o expirado.' });
+  } catch {
+    return res.status(401).json({ message: 'No autenticado. Token inválido o expirado.' });
   }
 };
 
 export const requireRole = (...allowedRoles) => (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ message: 'Acceso denegado. No hay token.' });
+    return res.status(401).json({ message: 'No autenticado.' });
   }
   if (!allowedRoles.includes(req.user.role)) {
-    return res.status(403).json({ message: 'Acceso denegado. Permisos insuficientes.' });
+    return res.status(403).json({ message: 'No autorizado. Permisos insuficientes.' });
   }
   next();
 };

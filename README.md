@@ -1,12 +1,12 @@
-# Backend API (Express + MongoDB)
+# Backend — Autenticación híbrida (JWT + sesión + OAuth)
 
-API con registro/login (bcrypt + JWT), Google OAuth (Passport), cookies firmadas y roles `user` / `admin`.
+API con registro, **Passport Local**, **Google OAuth**, **express-session** + **connect-mongo**, JWT en cookie `authToken` y rutas protegidas por rol.
 
 ## Requisitos
 
-Node.js ≥ 16, npm y MongoDB en ejecución.
+Node.js ≥ 18, MongoDB (Atlas o local).
 
-## Arranque
+## Instalación
 
 ```bash
 npm install
@@ -14,63 +14,40 @@ cp .env.example .env
 npm run dev
 ```
 
-Servidor por defecto: `http://localhost:3000`. Prefijo de API: `/api/v1`.
+En Google Cloud, callback autorizado: `http://localhost:3000/api/v1/auth/google/callback`
 
-## Variables de entorno
+## Endpoints (consigna proyecto final)
 
-Ver `.env.example`. Importante para Google OAuth:
+| Método | Ruta | Descripción |
+|--------|------|-------------|
+| POST | `/api/v1/auth/register` | Registro (bcrypt) |
+| POST | `/api/v1/auth/login` | Login Passport Local → JWT + sesión |
+| POST | `/api/v1/auth/logout` | Destruye sesión y borra cookie `authToken` |
+| GET | `/api/v1/auth/google` | Inicia OAuth Google |
+| GET | `/api/v1/auth/google/callback` | Callback OAuth |
+| GET | `/api/v1/session` | Estado de sesión en servidor |
+| GET | `/api/v1/profile` | Perfil (JWT) |
+| GET | `/api/v1/admin` | Solo rol `admin` |
 
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`: credenciales de la app en Google Cloud (OAuth client).
-- En la base de datos, el usuario guarda **`googleSubjectId`**: es el ID de cuenta de Google (`profile.id` / claim `sub`), **no** el client id del `.env`.
-
-Configurá en Google la URL de callback, por ejemplo:  
-`http://localhost:3000/api/v1/users/auth/google/callback`
-
-## Scripts
-
-| Comando | Uso |
-|--------|-----|
-| `npm run dev` / `npm start` | Servidor (`import 'dotenv/config'` solo en `src/app.js`) |
-| `npm run create-admin` | Crea usuario admin de prueba (usa `--import=dotenv/config`) |
-
-## Estructura principal
+## Estructura
 
 ```
-src/app.js              # entrada; carga dotenv aquí únicamente
-src/config/passport.js  # Google OAuth
-src/middlewares/auth.js # isAuthenticated, requireRole, isAdmin
-src/routes/usersRoutes.js
-src/routes/dashboardRoutes.js
+src/
+  app.js
+  config/       db, passport, session
+  strategies/   localStrategy, googleStrategy
+  models/
+  controllers/  authController, profileController
+  middlewares/  auth.js
+  routes/
+  utils/        authToken.js
 scripts/createAdmin.js
 ```
 
-## Endpoints útiles
+## Commits sugeridos
 
-| Método | Ruta | Notas |
-|--------|------|--------|
-| POST | `/api/v1/users/register` | |
-| POST | `/api/v1/users/login` | JWT en body y cookie `currentUser` |
-| POST | `/api/v1/users/logout` | Requiere auth |
-| GET | `/api/v1/users/current` | Requiere auth |
-| GET | `/api/v1/users` | Solo admin (`requireRole('admin')`) |
-| GET | `/api/v1/users/auth/google` | Inicia OAuth |
-| GET | `/api/v1/dashboard` | Requiere auth |
-
-Colección Postman: `Backend-2-API.postman_collection.json`.
-
-## Nomenclatura de commits (sugerida)
-
-- `feat:` nueva funcionalidad (ej. `feat: agregar Google OAuth`)
-- `fix:` corrección de errores
-- `chore:` tareas auxiliares (ej. `chore: actualizar variables de entorno`)
-- `docs:` solo documentación
-
-## Flujo de trabajo con Git
-
-Trabajar en ramas cortas (`feature/...`, `fix/...`) y fusionar a `main` con PR o merge cuando esté estable, como en un entorno real.
+`feat: agregar passport local y rutas auth` · `feat: sesiones con connect-mongo` · `chore: actualizar env example`
 
 ## Autor
 
-Emanuel Montenegro — [Portfolio](https://emanuelmontenegro.dev) · [GitHub](https://github.com/emanuelmontenegro)
-
-Licencia MIT.
+Emanuel Montenegro — MIT

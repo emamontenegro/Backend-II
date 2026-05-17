@@ -2,30 +2,29 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import passport from 'passport';
+import session from 'express-session';
+import passport from './config/passport.js';
+import sessionConfig from './config/sessionConfig.js';
 import connectDB from './config/db.js';
-import userRoutes from './routes/usersRoutes.js';
-import dashboardRoutes from './routes/dashboardRoutes.js';
-import './config/passport.js';
+import apiRoutes from './routes/index.js';
 
 connectDB();
 
 const app = express();
 
 app.use(cors({
-  origin: 'http://localhost:5173', // Reemplazá con la URL de tu frontend en desarrollo
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
 
-// Middlewares
 app.use(express.json());
-app.use(cookieParser(process.env.COOKIE_SECRET)); 
-app.use(passport.initialize()); 
+app.use(cookieParser());
+app.use(session(sessionConfig));
+app.use(passport.initialize());
+app.use(passport.session());
 
-// Rutas
-app.use('/api/v1/users', userRoutes);
-app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1', apiRoutes);
 
 const PORT = process.env.PORT || 3000;
 const httpserver = app.listen(PORT, () => {
@@ -38,7 +37,7 @@ const shutdown = () => {
     console.log('Server closed');
     process.exit(0);
   });
-}
+};
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
