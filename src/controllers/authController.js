@@ -1,6 +1,11 @@
 import bcrypt from 'bcrypt';
 import { User } from '../models/User.js';
-import { signAuthToken, setAuthCookie, clearAuthCookie } from '../utils/authToken.js';
+import {
+  signAuthToken,
+  setAuthCookie,
+  clearAuthCookie,
+  getTokenExpiry
+} from '../utils/authToken.js';
 import { SESSION_COOKIE_NAME, SESSION_COOKIE_OPTS } from '../config/sessionConfig.js';
 
 const bcryptRounds = Number(process.env.BCRYPT_ROUNDS) || 10;
@@ -38,13 +43,15 @@ export const register = async (req, res) => {
   }
 };
 
-export const issueAuthResponse = (req, res, user) => {
+export const issueAuthResponse = (req, res, user, options = {}) => {
+  const { message = 'Login exitoso', status = 200 } = options;
   const token = signAuthToken(user);
   setAuthCookie(res, token);
 
-  res.status(200).json({
-    message: 'Login exitoso',
+  res.status(status).json({
+    message,
     token,
+    expiresAt: getTokenExpiry(token),
     user: {
       userId: user._id,
       username: user.username,
