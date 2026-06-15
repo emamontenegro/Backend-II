@@ -1,6 +1,8 @@
+import 'dotenv/config';
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import { User } from '../src/models/User.js';
+import { cargarSecretosDesdeVault } from '../src/config/vault.js';
 
 const ADMIN_USERNAME = 'admin_general';
 const ADMIN_PASSWORD = 'admin123';
@@ -8,6 +10,8 @@ const ADMIN_EMAIL = 'admin_general@gmail.com';
 
 const createAdmin = async () => {
   try {
+    // MONGO_URI ahora vive en Vault: cargar secretos antes de conectar
+    await cargarSecretosDesdeVault();
     await mongoose.connect(process.env.MONGO_URI);
 
     const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);

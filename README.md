@@ -1,6 +1,6 @@
 # Backend II — Sistema de autenticación híbrido
 
-API REST en Node.js con **Passport Local**, **Google OAuth 2.0**, **JWT**, **cookies httpOnly** y **sesiones en MongoDB** (`express-session` + `connect-mongo`). Organizada por capas para el proyecto final de Backend.
+API REST en Node.js con **Passport Local**, **Google OAuth 2.0**, **JWT**, **cookies httpOnly**, **sesiones en MongoDB** (`express-session` + `connect-mongo`) y **secretos gestionados con HashiCorp Vault**. Organizada por capas para el proyecto final de Backend.
 
 ---
 
@@ -9,8 +9,9 @@ API REST en Node.js con **Passport Local**, **Google OAuth 2.0**, **JWT**, **coo
 | Aspecto | Descripción |
 |---------|-------------|
 | **Objetivo** | Autenticación híbrida: credenciales locales + OAuth Google, con estado de sesión en servidor y API protegida por JWT y roles. |
-| **Stack** | Express 5, Mongoose, Passport, bcrypt, jsonwebtoken, express-session, connect-mongo |
+| **Stack** | Express 5, Mongoose, Passport, bcrypt, jsonwebtoken, express-session, connect-mongo, node-vault, winston, compression |
 | **Base de datos** | MongoDB (Atlas o local). Colecciones: `users`, `sessions` |
+| **Secretos** | HashiCorp Vault (`secret/data/backend`) con fallback a `.env` |
 | **Roles** | `user` (default), `admin` |
 | **Prefijo API** | `/api/v1` |
 
@@ -30,12 +31,16 @@ backend-2/
 ├── scripts/
 │   └── createAdmin.js          # Crea/actualiza usuario admin de prueba
 ├── src/
-│   ├── app.js                  # Entry: dotenv, CORS, session, passport, rutas
+│   ├── app.js                  # Entry: dotenv → Vault → import dinámico de server.js
+│   ├── server.js               # http nativo + Express (mismo PORT)
 │   ├── config/
+│   │   ├── logger.js           # Winston: dev (colores) vs prod (JSON + archivos)
+│   │   ├── vault.js            # node-vault: inyecta secretos en process.env
 │   │   ├── db.js               # Conexión Mongoose
 │   │   ├── passport.js         # Registro de estrategias + serialize/deserialize
 │   │   ├── sessionConfig.js    # express-session + MongoStore
-│   │   └── googleOAuth.js      # Lectura/validación vars Google OAuth
+│   │   ├── googleOAuth.js      # Lectura/validación vars Google OAuth
+│   │   └── processConfig.js    # GET/POST /config (process.env.CONFIG_LEVEL)
 │   ├── strategies/
 │   │   ├── localStrategy.js    # Passport Local (username/password)
 │   │   └── googleStrategy.js   # Passport Google (register vs login)
@@ -52,17 +57,30 @@ backend-2/
 │   │   └── protectedRoutes.js  # /session, /profile, /admin
 │   └── utils/
 │       └── authToken.js        # JWT, cookie authToken, expiración
-├── .env.example
+├── logs/                       # Generada en prod: error.log + combined.log (gitignored)
+├── .env.example                # Solo bootstrap: PORT, NODE_ENV, VAULT_URL, VAULT_TOKEN
+├── Dockerfile                  # node:20-alpine
 ├── Backend-2-API.postman_collection.json
 ├── package.json
 └── README.md
 ```
 
+### Orden de arranque (Vault primero)
+
+```
+node src/app.js
+  1. dotenv           → carga .env (PORT, NODE_ENV, VAULT_URL, VAULT_TOKEN)
+  2. vault.js         → lee secret/data/backend e inyecta secretos en process.env
+  3. import('./server.js')  → recién acá se evalúan Passport, session y Mongoose
+```
+
+El `import()` dinámico es clave: en ES Modules los imports estáticos se ejecutan antes que cualquier línea del archivo, y módulos como `sessionConfig.js` leen `process.env` al cargarse. Si Vault no está configurado (`VAULT_URL`/`VAULT_TOKEN` vacíos), la app avisa y usa las variables del `.env` o las pasadas con `-e` en Docker.
+
 ### Capas
 
 | Capa | Responsabilidad |
 |------|-----------------|
-| **config** | Variables de entorno, DB, sesión, registro Passport |
+| **config** | Vault, logger, variables de entorno, DB, sesión, registro Passport |
 | **strategies** | Lógica de verificación OAuth/Local (sin HTTP) |
 | **models** | Esquema y persistencia de usuarios |
 | **controllers** | Reglas de negocio y respuestas JSON |
@@ -113,40 +131,140 @@ sequenceDiagram
 ### Requisitos
 
 - Node.js ≥ 18
-- MongoDB (Atlas con IP permitida o local)
+- Docker Desktop (para Vault local)
+- MongoDB Atlas con IP permitida
 - Cuenta Google Cloud (OAuth cliente tipo **Aplicación web**)
 
-### Pasos
+### Flujo de arranque (3 pasos)
+
+```
+docker compose up -d   →   npm run seed:vault   →   npm run dev
+```
+
+#### Paso 0 — Clonar e instalar
 
 ```bash
 git clone <tu-repo>
 cd backend-2
 npm install
 cp .env.example .env
-# Completar .env (ver tabla abajo)
+# .env solo necesita: PORT=3000, NODE_ENV=development,
+# VAULT_URL=http://127.0.0.1:8200, VAULT_TOKEN=blackskull17
+```
+
+#### Paso 1 — Levantar Vault con Docker Compose
+
+```bash
+docker compose up -d
+```
+
+Esto levanta HashiCorp Vault en `http://localhost:8200` con el token `blackskull17`.
+Verificar que esté corriendo: `docker compose ps`
+
+> **Nota:** Vault en modo `-dev` guarda los secretos en **memoria**. El volumen está mapeado pero no persiste entre reinicios. Repetir el Paso 2 cada vez que se reinicia el contenedor.
+
+#### Paso 2 — Inyectar secretos (seed)
+
+```bash
+npm run seed:vault
+```
+
+Este script se conecta a Vault y carga todas las variables en `secret/data/backend` de un solo golpe. Output esperado:
+
+```
+🔧 Conectando a Vault en http://127.0.0.1:8200 ...
+✅ 11 secretos inyectados en secret/data/backend
+```
+
+#### Paso 3 — Arrancar la API
+
+```bash
 npm run dev
 ```
 
-Servidor: `http://localhost:3000`
+Logs esperados en orden (formato Winston dev):
+
+```
+14:30:01 [info] Vault: 11 secretos inyectados desde secret/data/backend
+14:30:01 [info] MongoDB conectado
+14:30:01 [info] Servidor corriendo en el puerto 3000
+14:30:01 [info] Config:   GET/POST http://localhost:3000/config
+14:30:01 [info] Auth API: http://localhost:3000/api/v1
+14:30:01 [info] Google OAuth activo — callback: http://localhost:3000/api/v1/auth/google/callback
+```
 
 ### Scripts npm
 
 | Comando | Descripción |
 |---------|-------------|
-| `npm run dev` | Inicia la API (`import 'dotenv/config'` en `app.js`) |
+| `npm run dev` | Inicia la API (dotenv → Vault → server). Logs en consola con colores. |
 | `npm start` | Igual que dev |
-| `npm run create-admin` | Usuario `admin_general` / `admin123` (actualiza si ya existe) |
+| `npm run seed:vault` | Inyecta todos los secretos en Vault (correr después de compose up) |
+| `npm run create-admin` | Usuario `admin_general` / `admin123` (carga Vault antes de conectar) |
+
+---
+
+## Docker
+
+Imagen basada en `node:20-alpine`. El servidor usa **`http` nativo** + Express en el mismo puerto (`process.env.PORT`, default **8080** en contenedor).
+
+### Build
+
+```bash
+docker build -t backend-2 .
+```
+
+### Run — solo `/config` (sin MongoDB)
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e PORT=8080 \
+  -e CONFIG_LEVEL=high \
+  backend-2
+```
+
+Probar:
+
+```bash
+curl http://localhost:8080/config
+curl -X POST http://localhost:8080/config -H "Content-Type: application/json" -d "{\"level\":\"low\"}"
+curl http://localhost:8080/config
+```
+
+### Run — API completa (auth + MongoDB Atlas)
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e PORT=8080 \
+  -e CONFIG_LEVEL=high \
+  -e MONGO_URI="mongodb+srv://user:pass@cluster.mongodb.net/backend-ii" \
+  -e JWT_SECRET="tu_secreto" \
+  -e SESSION_SECRET="tu_sesion" \
+  -e GOOGLE_CLIENT_ID="..." \
+  -e GOOGLE_CLIENT_SECRET="..." \
+  -e GOOGLE_CALLBACK_URL="http://localhost:8080/api/v1/auth/google/callback" \
+  backend-2
+```
+
+> **Nota:** No se copia `.env` a la imagen (`.dockerignore`). Pasá secretos con `-e` o `--env-file .env` en desarrollo. Si no definís `VAULT_URL`/`VAULT_TOKEN` en el contenedor, la app saltea Vault y usa directamente esas variables (fallback).
 
 ---
 
 ## Variables de entorno
 
-Ver `.env.example`. Las obligatorias para funcionar:
+### En `.env` (bootstrap local — lo único que va en el archivo)
 
 | Variable | Uso |
 |----------|-----|
-| `PORT` | Puerto (default 3000) |
+| `PORT` | Puerto (`8080` default sin .env; en local usá `3000`) |
 | `NODE_ENV` | `development` \| `production` (afecta cookie `secure`) |
+| `VAULT_URL` | Endpoint de Vault (ej. `http://localhost:8200`) |
+| `VAULT_TOKEN` | Token de acceso a Vault |
+
+### En Vault (`secret/data/backend`)
+
+| Variable | Uso |
+|----------|-----|
 | `MONGO_URI` | Conexión MongoDB |
 | `JWT_SECRET` | Firma del JWT |
 | `JWT_EXPIRES_IN` | Ej. `1h` (consigna) o `24h` (pruebas locales) |
@@ -156,7 +274,10 @@ Ver `.env.example`. Las obligatorias para funcionar:
 | `GOOGLE_CLIENT_ID` | Cliente OAuth Web |
 | `GOOGLE_CLIENT_SECRET` | Secreto del cliente |
 | `GOOGLE_CALLBACK_URL` | Debe coincidir **exacto** con Google Cloud |
+| `CONFIG_LEVEL` | Valor inicial para `GET /config` (`high`, `low` u otro) |
 | `CLIENT_URL` | Origen CORS del frontend (opcional) |
+
+> Sin Vault, estas variables pueden ir igual en el `.env` o pasarse con `-e` en Docker: la app las consume de `process.env` de la misma forma.
 
 ### Google Cloud
 
@@ -170,6 +291,28 @@ Diagnóstico: `GET /api/v1/auth/google/check` y `GET /api/v1/auth/google/debug-a
 ---
 
 ## Endpoints
+
+### Config (process.env — módulo `http` nativo)
+
+Mismo puerto que la API (`PORT`, default 3000). Emula comandos stdin `get` / `set`.
+
+#### `GET /config`
+
+- `Accept: text/plain` → mensaje según `CONFIG_LEVEL` (`high` / `low` / default).
+- `Accept: application/json` → `{ "message", "level" }`.
+
+#### `POST /config`
+
+```json
+{ "level": "low" }
+```
+
+Mutación en runtime: `process.env.CONFIG_LEVEL = level`. El siguiente GET refleja el cambio sin reiniciar.
+
+```bash
+curl http://localhost:3000/config
+curl -X POST http://localhost:3000/config -H "Content-Type: application/json" -d "{\"level\":\"low\"}"
+```
 
 ### Auth local
 
@@ -253,6 +396,9 @@ Enviar header: `Authorization: Bearer <token>` o cookie `authToken`.
 
 | Tema | Decisión |
 |------|----------|
+| **Secretos** | Centralizados en Vault (`secret/data/backend`); el `.env` solo tiene el bootstrap (`VAULT_URL`/`VAULT_TOKEN`) y no viaja al repo ni a la imagen Docker. |
+| **Logging** | Winston con dos modos: `development` → texto con colores en consola; `production` → JSON estructurado en consola + `logs/error.log` + `logs/combined.log`. Cada request HTTP se loguea con método, ruta, status y tiempo de respuesta. |
+| **Compresión** | Middleware `compression` (gzip/brotli) en todas las respuestas Express. |
 | **Rol en JWT** | `{ userId, role }` firmado con `JWT_SECRET`. El rol no se confía desde el body del cliente. |
 | **Registro público** | No acepta `role: admin` en el body; admin vía script o MongoDB. |
 | **CSRF** | Cookies `httpOnly` + `sameSite: lax`; API stateless con Bearer en Postman. En producción: `secure: true`, CORS restringido a `CLIENT_URL`. |
@@ -264,16 +410,19 @@ Enviar header: `Authorization: Bearer <token>` o cookie `authToken`.
 
 ## Pruebas con Postman
 
-Importar `Backend-2-API.postman_collection.json`.
+Importar `Backend-2-API.postman_collection.json`. Carpetas: **Health**, **Auth**, **Google OAuth**, **Session & Protected**, **Config**.
 
 Orden sugerido:
 
-1. **Register** o **Login Admin** → guarda `token` en variable de colección.
-2. **GET Profile** → 200.
-3. **GET Admin** (con admin) → 200.
-4. **GET Session** (con cookies si hubo login en mismo entorno).
-5. **Logout** → 200 con Bearer del paso 1.
-6. Google: navegador en `/google/register` o `/google/login` → copiar `token` → Profile / Logout.
+1. **Login Admin** → guarda `{{token}}` automáticamente (crear antes con `npm run create-admin`).
+2. **GET Profile (JWT)** → 200.
+3. **GET Admin (rol admin)** → 200.
+4. **Login User** + **GET Admin** → 403 (evidencia de "No autorizado").
+5. **GET Profile** sin token → 401 (evidencia de "No autenticado").
+6. **GET Session** → con cookies activas tras login; 401 sin sesión.
+7. **Logout** → 200 con el Bearer vigente.
+8. **Google**: abrir `/google/register` o `/google/login` en el **navegador**, copiar el campo `token` del JSON (no el `code` de la URL) y usarlo como Bearer.
+9. **Config**: GET → POST `{ "level": "low" }` → GET (refleja el cambio sin reiniciar).
 
 ---
 

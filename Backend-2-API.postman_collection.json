@@ -1,31 +1,45 @@
 {
   "info": {
-    "name": "Backend-2 API — Auth híbrido",
-    "description": "Registro, login local (Passport), OAuth Google, sesión, profile, admin y logout",
+    "name": "Backend-2 API — Auth híbrido + Vault",
+    "description": "Colección completa para probar la API. Flujo previo: docker compose up → npm run seed:vault → npm run dev.\n\nEl script 'Login Admin' y 'Login User' guardan automáticamente el token en {{token}} para los requests protegidos.\n\nEl servidor usa Winston para logging (consola con colores en dev, JSON en prod) y compression para respuestas gzip. En la consola del servidor verás cada request con método, ruta, status y tiempo de respuesta.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
-    { "key": "base_url", "value": "http://localhost:3000" },
-    { "key": "token", "value": "" }
+    { "key": "base_url", "value": "http://localhost:3000", "type": "string" },
+    { "key": "token", "value": "", "type": "string" }
   ],
   "item": [
     {
-      "name": "Auth",
+      "name": "🏥 Health",
       "item": [
         {
-          "name": "Register",
+          "name": "GET / — info API",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/",
+            "description": "Verifica que el servidor esté corriendo. Responde con info básica de la API."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔐 Auth Local",
+      "item": [
+        {
+          "name": "Register (nuevo usuario)",
           "request": {
             "method": "POST",
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\",\n  \"email\": \"test@mail.com\"\n}"
             },
-            "url": "{{base_url}}/api/v1/auth/register"
+            "url": "{{base_url}}/api/v1/auth/register",
+            "description": "Crea un usuario con rol 'user'. El campo 'role' es ignorado aunque se envíe."
           }
         },
         {
-          "name": "Login Admin (actualiza token)",
+          "name": "Login Admin → guarda token",
           "event": [
             {
               "listen": "test",
@@ -34,7 +48,9 @@
                   "const json = pm.response.json();",
                   "if (json.token) {",
                   "  pm.collectionVariables.set('token', json.token);",
-                  "  console.log('Token guardado. Expira:', json.expiresAt);",
+                  "  console.log('✅ Token guardado. Expira:', json.expiresAt);",
+                  "} else {",
+                  "  console.warn('⚠️ No se encontró token en la respuesta');",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -48,18 +64,22 @@
               "mode": "raw",
               "raw": "{\n  \"username\": \"admin_general\",\n  \"password\": \"admin123\"\n}"
             },
-            "url": "{{base_url}}/api/v1/auth/login"
+            "url": "{{base_url}}/api/v1/auth/login",
+            "description": "Login con el admin de prueba. Guardar antes con: npm run create-admin.\nEl token queda en {{token}} automáticamente."
           }
         },
         {
-          "name": "Login (Passport Local)",
+          "name": "Login User → guarda token",
           "event": [
             {
               "listen": "test",
               "script": {
                 "exec": [
                   "const json = pm.response.json();",
-                  "if (json.token) pm.collectionVariables.set('token', json.token);"
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('token', json.token);",
+                  "  console.log('✅ Token guardado. Expira:', json.expiresAt);",
+                  "}"
                 ],
                 "type": "text/javascript"
               }
@@ -72,7 +92,8 @@
               "mode": "raw",
               "raw": "{\n  \"username\": \"testuser\",\n  \"password\": \"password123\"\n}"
             },
-            "url": "{{base_url}}/api/v1/auth/login"
+            "url": "{{base_url}}/api/v1/auth/login",
+            "description": "Login con usuario común (rol user). Útil para probar 403 en GET Admin."
           }
         },
         {
@@ -83,48 +104,130 @@
               "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
             },
             "method": "POST",
-            "url": "{{base_url}}/api/v1/auth/logout"
-          }
-        },
-        {
-          "name": "Google OAuth (browser)",
-          "request": {
-            "method": "GET",
-            "url": "{{base_url}}/api/v1/auth/google"
+            "url": "{{base_url}}/api/v1/auth/logout",
+            "description": "Destruye sesión en MongoDB y borra cookies authToken + sid.\nRequiere Bearer con un token vigente (recién obtenido del login)."
           }
         }
       ]
     },
     {
-      "name": "Session & Protected",
+      "name": "🌐 Google OAuth (abrir en navegador)",
       "item": [
+        {
+          "name": "Google Register (1ª vez) — NAVEGADOR",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/auth/google/register",
+            "description": "⚠️ ABRIR EN NAVEGADOR, no en Postman.\nRedirige a Google. Si el usuario no existe, lo crea con rol 'user'.\nAl terminar, el JSON devuelve el campo 'token' → copiarlo para usar en los requests protegidos."
+          }
+        },
+        {
+          "name": "Google Login — NAVEGADOR",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/auth/google/login",
+            "description": "⚠️ ABRIR EN NAVEGADOR, no en Postman.\nLogin con cuenta Google ya registrada. Devuelve JSON con 'token'."
+          }
+        },
+        {
+          "name": "Google Check (diagnóstico)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/auth/google/check",
+            "description": "Verifica que GOOGLE_CLIENT_ID/SECRET estén cargados desde Vault y muestra la callbackURL que debe coincidir con Google Cloud Console."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Rutas Protegidas (JWT)",
+      "item": [
+        {
+          "name": "GET Profile — 200 con JWT",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/profile",
+            "description": "Requiere JWT válido. → 401 sin token, 401 si expiró."
+          }
+        },
+        {
+          "name": "GET Profile — 401 sin token",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/profile",
+            "description": "Sin Authorization header. Debe responder 401 'No autenticado'."
+          }
+        },
+        {
+          "name": "GET Admin — 200 con admin",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/admin",
+            "description": "Requiere JWT + rol admin. Usar 'Login Admin' antes."
+          }
+        },
+        {
+          "name": "GET Admin — 403 con user",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": "{{base_url}}/api/v1/admin",
+            "description": "Usar 'Login User' antes. Debe responder 403 'Acceso denegado — se requiere rol admin'."
+          }
+        },
         {
           "name": "GET Session",
           "request": {
             "method": "GET",
-            "url": "{{base_url}}/api/v1/session"
+            "url": "{{base_url}}/api/v1/session",
+            "description": "Estado de la sesión Passport en servidor (cookie sid).\nActivar 'Send cookies' en Postman para probarla tras un login."
+          }
+        }
+      ]
+    },
+    {
+      "name": "⚙️ Config (process.env)",
+      "item": [
+        {
+          "name": "GET Config — JSON",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Accept", "value": "application/json" }],
+            "url": "{{base_url}}/config",
+            "description": "Lee process.env.CONFIG_LEVEL. El header Accept: application/json devuelve { message, level }."
           }
         },
         {
-          "name": "GET Profile",
+          "name": "GET Config — texto plano",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
-            },
             "method": "GET",
-            "url": "{{base_url}}/api/v1/profile"
+            "header": [{ "key": "Accept", "value": "text/plain" }],
+            "url": "{{base_url}}/config",
+            "description": "Sin Accept: application/json devuelve un mensaje en texto plano."
           }
         },
         {
-          "name": "GET Admin",
+          "name": "POST Config — cambiar level",
           "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"level\": \"low\"\n}"
             },
-            "method": "GET",
-            "url": "{{base_url}}/api/v1/admin"
+            "url": "{{base_url}}/config",
+            "description": "Muta process.env.CONFIG_LEVEL en runtime. El siguiente GET refleja el cambio sin reiniciar el servidor."
           }
         }
       ]

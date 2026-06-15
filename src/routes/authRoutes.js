@@ -7,6 +7,7 @@ import {
   logout
 } from '../controllers/authController.js';
 import { getGoogleOAuthConfig } from '../config/googleOAuth.js';
+import logger from '../config/logger.js';
 
 const router = Router();
 
@@ -45,7 +46,7 @@ export const handleGoogleCallback = (req, res, next) => {
     delete req.session.oauthIntent;
 
     if (err) {
-      console.error('Google callback error:', err.message);
+      logger.error('Google OAuth callback error', { error: err.message });
       return res.status(400).json({
         message: 'Error al validar el código de Google',
         detalle: err.message

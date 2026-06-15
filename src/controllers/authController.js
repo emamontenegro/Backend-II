@@ -7,6 +7,7 @@ import {
   getTokenExpiry
 } from '../utils/authToken.js';
 import { SESSION_COOKIE_NAME, SESSION_COOKIE_OPTS } from '../config/sessionConfig.js';
+import logger from '../config/logger.js';
 
 const bcryptRounds = Number(process.env.BCRYPT_ROUNDS) || 10;
 
@@ -85,7 +86,7 @@ export const logout = async (req, res) => {
       message: 'Logout exitoso. Sesión destruida y cookie eliminada.'
     });
   } catch (error) {
-    console.error('Logout error:', error);
+    logger.error('Error en logout', { error: error.message });
     res.status(500).json({ message: 'Error al cerrar sesión' });
   }
 };
