@@ -46,7 +46,7 @@ export const handleGoogleCallback = (req, res, next) => {
     delete req.session.oauthIntent;
 
     if (err) {
-      logger.error('Google OAuth callback error', { error: err.message });
+      logger.error({ error: err.message }, 'Google OAuth callback error');
       return res.status(400).json({
         message: 'Error al validar el código de Google',
         detalle: err.message

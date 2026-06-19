@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 5s      # Consulta /metrics cada 5 segundos
+  evaluation_interval: 20s  # Evalúa reglas de alerta cada 20 segundos
+
+scrape_configs:
+  - job_name: "node-app"
+    # host.docker.internal permite que el contenedor de Prometheus
+    # alcance el puerto 3000 del host (donde corre tu API Node.js)
+    static_configs:
+      - targets: ["172.30.158.10:3000"]
+        labels:
+          app: "backend-iii"
+          env: "development"

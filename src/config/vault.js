@@ -29,10 +29,10 @@ export const cargarSecretosDesdeVault = async () => {
 
     logger.info(`Vault: ${Object.keys(secretos).length} secretos inyectados desde ${VAULT_SECRET_PATH}`);
   } catch (error) {
-    logger.error('Error al leer secretos de Vault', {
-      error: error.message,
-      hint: 'Corré "npm run seed:vault" después de "docker compose up"'
-    });
+    logger.error(
+      { error: error.message, hint: 'Corré "npm run seed:vault" después de "docker compose up"' },
+      'Error al leer secretos de Vault'
+    );
     process.exit(1);
   }
 };

@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Backend-2 API — Auth híbrido + Vault",
-    "description": "Colección completa para probar la API. Flujo previo: docker compose up → npm run seed:vault → npm run dev.\n\nEl script 'Login Admin' y 'Login User' guardan automáticamente el token en {{token}} para los requests protegidos.\n\nEl servidor usa Winston para logging (consola con colores en dev, JSON en prod) y compression para respuestas gzip. En la consola del servidor verás cada request con método, ruta, status y tiempo de respuesta.",
+    "name": "Backend-3 API — Auth híbrido + Vault + Observabilidad",
+    "description": "Colección completa para probar la API. Flujo previo: docker compose up → npm run seed:vault → npm run dev.\n\nEl script 'Login Admin' y 'Login User' guardan automáticamente el token en {{token}} para los requests protegidos.\n\nObservabilidad:\n- Logs con Pino (pino-pretty en dev, JSON en prod). En la consola verás cada request con método, ruta, status y tiempo.\n- Métricas Prometheus en GET /metrics: CPU, memoria, event loop + histograma y contador HTTP.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -10,14 +10,22 @@
   ],
   "item": [
     {
-      "name": "🏥 Health",
+      "name": "🏥 Health & Observabilidad",
       "item": [
         {
           "name": "GET / — info API",
           "request": {
             "method": "GET",
             "url": "{{base_url}}/",
-            "description": "Verifica que el servidor esté corriendo. Responde con info básica de la API."
+            "description": "Verifica que el servidor esté corriendo. Responde con info básica y lista de endpoints disponibles."
+          }
+        },
+        {
+          "name": "GET /metrics — Prometheus",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/metrics",
+            "description": "Expone métricas en formato Prometheus/OpenMetrics.\n\nIncluye:\n- Métricas default de Node.js: CPU, memoria heap, event loop lag, GC.\n- http_request_duration_seconds: histograma de duración por method/route/status_code.\n- http_requests_total: contador total de requests.\n\nNo requiere autenticación. Útil para conectar con Grafana o Prometheus."
           }
         }
       ]

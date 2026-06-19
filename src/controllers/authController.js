@@ -86,7 +86,7 @@ export const logout = async (req, res) => {
       message: 'Logout exitoso. Sesión destruida y cookie eliminada.'
     });
   } catch (error) {
-    logger.error('Error en logout', { error: error.message });
+    logger.error({ error: error.message }, 'Error en logout');
     res.status(500).json({ message: 'Error al cerrar sesión' });
   }
 };

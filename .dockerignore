@@ -11,3 +11,5 @@ README.md
 terminals
 scripts/seedVault.js
 logs/
+prometheus.yml
+docker-compose.yml

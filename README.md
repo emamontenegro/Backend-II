@@ -1,6 +1,6 @@
-# Backend II — Sistema de autenticación híbrido
+# Backend III — Sistema de autenticación híbrido
 
-API REST en Node.js con **Passport Local**, **Google OAuth 2.0**, **JWT**, **cookies httpOnly**, **sesiones en MongoDB** (`express-session` + `connect-mongo`) y **secretos gestionados con HashiCorp Vault**. Organizada por capas para el proyecto final de Backend.
+API REST en Node.js con **Passport Local**, **Google OAuth 2.0**, **JWT**, **cookies httpOnly**, **sesiones en MongoDB** (`express-session` + `connect-mongo`), **secretos gestionados con HashiCorp Vault** y **observabilidad** con Pino + Prometheus. Organizada por capas para el proyecto final de Backend.
 
 ---
 
@@ -8,8 +8,8 @@ API REST en Node.js con **Passport Local**, **Google OAuth 2.0**, **JWT**, **coo
 
 | Aspecto | Descripción |
 |---------|-------------|
-| **Objetivo** | Autenticación híbrida: credenciales locales + OAuth Google, con estado de sesión en servidor y API protegida por JWT y roles. |
-| **Stack** | Express 5, Mongoose, Passport, bcrypt, jsonwebtoken, express-session, connect-mongo, node-vault, winston, compression |
+| **Objetivo** | Autenticación híbrida: credenciales locales + OAuth Google, con estado de sesión en servidor, API protegida por JWT y roles, y observabilidad con logs estructurados y métricas Prometheus. |
+| **Stack** | Express 5, Mongoose, Passport, bcrypt, jsonwebtoken, express-session, connect-mongo, node-vault, pino, prom-client, compression |
 | **Base de datos** | MongoDB (Atlas o local). Colecciones: `users`, `sessions` |
 | **Secretos** | HashiCorp Vault (`secret/data/backend`) con fallback a `.env` |
 | **Roles** | `user` (default), `admin` |
@@ -34,7 +34,8 @@ backend-2/
 │   ├── app.js                  # Entry: dotenv → Vault → import dinámico de server.js
 │   ├── server.js               # http nativo + Express (mismo PORT)
 │   ├── config/
-│   │   ├── logger.js           # Winston: dev (colores) vs prod (JSON + archivos)
+│   │   ├── logger.js           # Pino: dev (pino-pretty) vs prod (JSON estructurado)
+│   │   ├── metrics.js          # prom-client: métricas default + histograma HTTP
 │   │   ├── vault.js            # node-vault: inyecta secretos en process.env
 │   │   ├── db.js               # Conexión Mongoose
 │   │   ├── passport.js         # Registro de estrategias + serialize/deserialize
@@ -65,16 +66,42 @@ backend-2/
 └── README.md
 ```
 
+### Escalabilidad — Cluster nativo
+
+El punto de entrada usa el módulo `cluster` de Node.js para aprovechar todos los núcleos del procesador:
+
+```
+npm run dev
+  ↓
+app.js (Primary PID 1234)
+  ├── dotenv + Vault  → process.env con todos los secretos
+  ├── os.cpus().length = N
+  ├── fork() × N workers → cada uno hereda process.env del primary
+  └── cluster.on('exit') → levanta reemplazo automático si un worker muere
+
+Worker 1 (PID 1235) → Express + MongoDB + puerto 3000 compartido
+Worker 2 (PID 1236) → Express + MongoDB + puerto 3000 compartido
+Worker N (PID 123N) → Express + MongoDB + puerto 3000 compartido
+```
+
+El SO distribuye los requests entrantes entre los workers de forma automática. Si un worker muere por un error, el Primary lo detecta y lanza uno nuevo sin interrumpir el servicio.
+
 ### Orden de arranque (Vault primero)
 
 ```
 node src/app.js
-  1. dotenv           → carga .env (PORT, NODE_ENV, VAULT_URL, VAULT_TOKEN)
-  2. vault.js         → lee secret/data/backend e inyecta secretos en process.env
-  3. import('./server.js')  → recién acá se evalúan Passport, session y Mongoose
+  PRIMARY:
+    1. dotenv    → carga .env (PORT, NODE_ENV, VAULT_URL, VAULT_TOKEN)
+    2. vault.js  → inyecta secretos en process.env
+    3. fork() × N workers (heredan process.env completo)
+    4. escucha evento 'exit' → reemplaza workers caídos
+
+  WORKER (× N):
+    1. import('./server.js') → Express + Mongoose + Passport
+       (process.env ya tiene todos los secretos del primary)
 ```
 
-El `import()` dinámico es clave: en ES Modules los imports estáticos se ejecutan antes que cualquier línea del archivo, y módulos como `sessionConfig.js` leen `process.env` al cargarse. Si Vault no está configurado (`VAULT_URL`/`VAULT_TOKEN` vacíos), la app avisa y usa las variables del `.env` o las pasadas con `-e` en Docker.
+El `import()` dinámico en workers es clave: los módulos como `sessionConfig.js` leen `process.env` al cargarse, y en ese momento ya está todo inyectado por el primary.
 
 ### Capas
 
@@ -182,15 +209,16 @@ Este script se conecta a Vault y carga todas las variables en `secret/data/backe
 npm run dev
 ```
 
-Logs esperados en orden (formato Winston dev):
+Logs esperados en orden (formato pino-pretty en desarrollo):
 
 ```
-14:30:01 [info] Vault: 11 secretos inyectados desde secret/data/backend
-14:30:01 [info] MongoDB conectado
-14:30:01 [info] Servidor corriendo en el puerto 3000
-14:30:01 [info] Config:   GET/POST http://localhost:3000/config
-14:30:01 [info] Auth API: http://localhost:3000/api/v1
-14:30:01 [info] Google OAuth activo — callback: http://localhost:3000/api/v1/auth/google/callback
+[14:30:01] INFO: Vault: 11 secretos inyectados desde secret/data/backend
+[14:30:01] INFO: MongoDB conectado
+[14:30:01] INFO: Servidor corriendo en el puerto 3000
+[14:30:01] INFO: Métricas:  GET http://localhost:3000/metrics
+[14:30:01] INFO: Config:    GET/POST http://localhost:3000/config
+[14:30:01] INFO: Auth API:  http://localhost:3000/api/v1
+[14:30:01] INFO: Google OAuth activo — callback: http://localhost:3000/api/v1/auth/google/callback
 ```
 
 ### Scripts npm
@@ -397,7 +425,8 @@ Enviar header: `Authorization: Bearer <token>` o cookie `authToken`.
 | Tema | Decisión |
 |------|----------|
 | **Secretos** | Centralizados en Vault (`secret/data/backend`); el `.env` solo tiene el bootstrap (`VAULT_URL`/`VAULT_TOKEN`) y no viaja al repo ni a la imagen Docker. |
-| **Logging** | Winston con dos modos: `development` → texto con colores en consola; `production` → JSON estructurado en consola + `logs/error.log` + `logs/combined.log`. Cada request HTTP se loguea con método, ruta, status y tiempo de respuesta. |
+| **Logging** | Pino con dos modos: `development` → pino-pretty (colores, timestamps legibles); `production` → JSON estructurado (compatible con Datadog, Loki, CloudWatch). Cada request HTTP se loguea con método, ruta, status y tiempo. |
+| **Métricas** | prom-client expone métricas default de Node.js (CPU, memoria, event loop) + histograma y contador de requests HTTP en `GET /metrics` (formato Prometheus/OpenMetrics). |
 | **Compresión** | Middleware `compression` (gzip/brotli) en todas las respuestas Express. |
 | **Rol en JWT** | `{ userId, role }` firmado con `JWT_SECRET`. El rol no se confía desde el body del cliente. |
 | **Registro público** | No acepta `role: admin` en el body; admin vía script o MongoDB. |
@@ -423,6 +452,55 @@ Orden sugerido:
 7. **Logout** → 200 con el Bearer vigente.
 8. **Google**: abrir `/google/register` o `/google/login` en el **navegador**, copiar el campo `token` del JSON (no el `code` de la URL) y usarlo como Bearer.
 9. **Config**: GET → POST `{ "level": "low" }` → GET (refleja el cambio sin reiniciar).
+
+---
+
+## Observabilidad
+
+### Logs (Pino)
+
+El logger está en `src/config/logger.js` y se importa en todos los módulos del servidor.
+
+| Entorno | Formato | Cómo se ve |
+|---------|---------|------------|
+| `development` | pino-pretty | `[14:30:01] INFO: MongoDB conectado` |
+| `production` | JSON | `{"level":30,"time":1234567890,"msg":"MongoDB conectado"}` |
+
+Niveles usados: `info` (arranque, requests 2xx/3xx), `warn` (requests 4xx, config faltante), `error` (requests 5xx, errores de DB/Vault).
+
+### Métricas (prom-client + Prometheus + Grafana)
+
+Endpoint: **`GET http://localhost:3000/metrics`**
+
+Devuelve métricas en formato texto de Prometheus. Incluye:
+
+- **Métricas default de Node.js**: CPU, memoria heap, event loop lag, GC, handles activos.
+- **`http_request_duration_seconds`**: histograma de duración por `method`, `route` y `status_code`.
+- **`http_requests_total`**: contador total de requests recibidos.
+
+Para verlas en la terminal:
+
+```bash
+curl http://localhost:3000/metrics
+```
+
+#### Stack de observabilidad completo (opcional)
+
+Con `docker compose up -d` también levantan **Prometheus** y **Grafana**:
+
+| Servicio | URL | Credenciales |
+|----------|-----|--------------|
+| Prometheus | `http://localhost:9090` | — |
+| Grafana | `http://localhost:3001` | admin / blackskull17 |
+
+Prometheus scrapeará `GET /metrics` cada 5 segundos automáticamente (`prometheus.yml`).
+
+> **WSL2:** el target en `prometheus.yml` debe apuntar a la IP de la interfaz `eth0` de WSL2 (no `localhost` ni el gateway de Windows). Obtenerla con `hostname -I | awk '{print $1}'` y actualizar el archivo si cambia al reiniciar.
+
+**Configurar Grafana (primera vez):**
+1. Ir a `http://localhost:3001` → login con `admin` / `blackskull17`
+2. El Data Source de Prometheus ya está aprovisionado automáticamente (`grafana/provisioning/datasources/datasource.yml`) — no hace falta configurarlo a mano.
+3. **Dashboards → New → Import** → pegar ID `1860` (Node.js dashboard comunitario) → Load → seleccionar **Prometheus** como fuente → **Import**
 
 ---
 
