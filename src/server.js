@@ -16,10 +16,7 @@ import connectDB from './config/db.js';
 import logger from './config/logger.js';
 import { register, metricsMiddleware } from './config/metrics.js';
 import { logGoogleOAuthStatus } from './config/googleOAuth.js';
-import {
-  isConfigRoute,
-  dispatchConfigRoute
-} from './config/processConfig.js';
+import { isConfigRoute, dispatchConfigRoute } from './config/processConfig.js';
 import apiRoutes from './routes/index.js';
 import { handleGoogleCallback } from './routes/authRoutes.js';
 
