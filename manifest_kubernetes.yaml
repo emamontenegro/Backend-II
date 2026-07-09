@@ -1,0 +1,225 @@
+# ============================================================
+# Kubernetes Manifest — Backend 3 Course API  (Clase 4)
+# Archivo: manifest_kubernetes.yaml
+#
+# Contiene DOS recursos separados por ---:
+#   1. Secret      → variables de entorno sensibles
+#   2. Deployment  → configuración de los Pods
+#
+# Aplicar todo junto: kubectl apply -f manifest_kubernetes.yaml
+# ============================================================
+
+# ────────────────────────────────────────────────────────────
+# SECRET — crear manualmente desde la terminal con:
+#
+#   kubectl delete secret mi-app-secrets --ignore-not-found=true
+#   kubectl create secret generic mi-app-secrets \
+#     --from-literal=NODE_ENV=production \
+#     --from-literal=PORT=80 \
+#     --from-literal=JWT_SECRET=<tu-jwt-secret> \
+#     "--from-literal=MONGO_URI=mongodb+srv://<usuario>:<password>@<cluster>.mongodb.net/<db>?appName=<app>" \
+#     --from-literal=SESSION_SECRET=<tu-session-secret> \
+#     --from-literal=SESSION_TIMEOUT=3600000 \
+#     --from-literal=BCRYPT_ROUNDS=10 \
+#     --from-literal=CLIENT_URL=http://localhost \
+#     --from-literal=GOOGLE_CLIENT_ID=<tu-google-client-id> \
+#     --from-literal=GOOGLE_CLIENT_SECRET=<tu-google-client-secret> \
+#     --from-literal=GOOGLE_CALLBACK_URL=http://localhost/api/v1/auth/google/callback
+#
+# IMPORTANTE: el Secret NO está en este YAML para que
+# 'kubectl apply' nunca sobreescriba los valores reales.
+# ────────────────────────────────────────────────────────────
+
+# ────────────────────────────────────────────────────────────
+# RECURSO 1 — DEPLOYMENT
+#
+# Gestiona el ciclo de vida de los Pods: creación,
+# actualizaciones sin downtime y reinicio ante fallas.
+# ────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: mi-app-deployment
+  labels:
+    app: mi-app
+    tier: backend
+
+spec:
+  # ── Réplicas ──────────────────────────────────────────────
+  replicas: 1                     # 1 réplica para Minikube local (el cluster module forkea workers adentro)
+
+  # ── Selector ──────────────────────────────────────────────
+  # Conecta este Deployment con los Pods que gestiona
+  selector:
+    matchLabels:
+      app: mi-app
+      tier: backend
+
+  # ── Estrategia de actualización sin downtime ───────────────
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1                 # Levanta 1 Pod nuevo antes de bajar el viejo
+      maxUnavailable: 0           # Ningún Pod fuera de servicio durante el update
+
+  # ── Plantilla del Pod ─────────────────────────────────────
+  template:
+    metadata:
+      labels:
+        app: mi-app               # Debe coincidir exactamente con selector.matchLabels
+        tier: backend
+
+    spec:
+      containers:
+        - name: mi-app-container
+          image: emamontenegro/backend-3-api:latest
+          imagePullPolicy: Always       # Siempre descarga de Docker Hub (garantiza imagen nueva)
+
+          ports:
+            - containerPort: 80
+              protocol: TCP
+
+          # ── Variables desde el Secret ──────────────────────
+          # Cada variable se carga dinámicamente de 'mi-app-secrets'.
+          # El contenedor nunca ve los valores en texto plano en el YAML.
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: NODE_ENV
+
+            - name: PORT
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: PORT
+
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: JWT_SECRET
+
+            - name: MONGO_URI
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: MONGO_URI
+
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: GOOGLE_CLIENT_ID
+
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: GOOGLE_CLIENT_SECRET
+
+            - name: GOOGLE_CALLBACK_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: GOOGLE_CALLBACK_URL
+
+            - name: SESSION_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: SESSION_SECRET
+
+            - name: SESSION_TIMEOUT
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: SESSION_TIMEOUT
+
+            - name: BCRYPT_ROUNDS
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: BCRYPT_ROUNDS
+
+            - name: CLIENT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mi-app-secrets
+                  key: CLIENT_URL
+
+          # ── Límites de recursos ───────────────────────────
+          # 1 réplica para Minikube local: el cluster module ya forkea
+          # workers internamente, por eso 1 Pod es suficiente para testing.
+          # En producción real subir replicas a 4 y memory limit a 1Gi.
+          resources:
+            requests:
+              cpu: "250m"         # 0.25 vCPU garantizado
+              memory: "256Mi"     # 256 MiB garantizados
+            limits:
+              cpu: "500m"         # Techo: 0.5 vCPU
+              memory: "512Mi"     # Techo: 512 MiB (cluster de workers necesita más RAM)
+
+          # ── Readiness Probe ───────────────────────────────
+          # Kubernetes solo envía tráfico al Pod cuando responde 200.
+          # Evita requests mientras la app se está inicializando.
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # ── Liveness Probe ────────────────────────────────
+          # Si este chequeo falla 3 veces seguidas, Kubernetes
+          # reinicia el Pod automáticamente.
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 120   # MongoDB Atlas tarda ~60-90s en conectar desde el contenedor
+            periodSeconds: 15
+            failureThreshold: 3
+
+# ============================================================
+# GUÍA DE EJECUCIÓN LOCAL (Docker Desktop o Minikube)
+# ============================================================
+#
+# PRE-REQUISITO: tener Docker Desktop con Kubernetes habilitado
+#   Docker Desktop → Settings → Kubernetes → Enable Kubernetes → Apply
+#   O instalar Minikube: https://minikube.sigs.k8s.io/docs/start/
+#
+# PASO 1 — Construir la imagen Docker
+#   docker build -t mi-imagen:latest .
+#
+#   Si usás Minikube (necesita que la imagen esté dentro de su entorno):
+#   minikube image load mi-imagen:latest
+#
+# PASO 2 — Editar los valores del Secret ANTES de aplicar
+#   Abrí este archivo y reemplazá los <placeholders> con valores reales.
+#   Nunca subas este archivo con valores reales a GitHub.
+#
+# PASO 3 — Aplicar el manifest completo (Secret + Deployment)
+#   kubectl apply -f manifest_kubernetes.yaml
+#
+# PASO 4 — Verificar que los 4 Pods están corriendo
+#   kubectl get pods -l app=mi-app
+#   (Esperá a que todos digan STATUS: Running y READY: 1/1)
+#
+# PASO 5 — Ver logs de un Pod específico
+#   kubectl logs <nombre-del-pod>
+#   Ejemplo: kubectl logs mi-app-deployment-abc12-xyz99
+#
+# PASO 6 — Exponer la app en localhost (port-forward para testing)
+#   kubectl port-forward deployment/mi-app-deployment 3000:80
+#   Luego abrí: http://localhost:3000
+#
+# COMANDOS ÚTILES DE DIAGNÓSTICO
+#   kubectl get deployments              → ver estado del Deployment
+#   kubectl describe pod <nombre-pod>    → detalles y errores del Pod
+#   kubectl get secrets                  → verificar que el Secret existe
+#   kubectl delete -f manifest_kubernetes.yaml  → borrar todo lo creado
+# ============================================================

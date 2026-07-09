@@ -176,7 +176,7 @@ cd backend-2
 npm install
 cp .env.example .env
 # .env solo necesita: PORT=3000, NODE_ENV=development,
-# VAULT_URL=http://127.0.0.1:8200, VAULT_TOKEN=blackskull17
+# VAULT_URL=http://127.0.0.1:8200, VAULT_TOKEN=<tu-vault-token>
 ```
 
 #### Paso 1 — Levantar Vault con Docker Compose
@@ -185,7 +185,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Esto levanta HashiCorp Vault en `http://localhost:8200` con el token `blackskull17`.
+Esto levanta HashiCorp Vault en `http://localhost:8200` con el token definido en `VAULT_TOKEN` de tu `.env`.
 Verificar que esté corriendo: `docker compose ps`
 
 > **Nota:** Vault en modo `-dev` guarda los secretos en **memoria**. El volumen está mapeado pero no persiste entre reinicios. Repetir el Paso 2 cada vez que se reinicia el contenedor.
@@ -491,14 +491,14 @@ Con `docker compose up -d` también levantan **Prometheus** y **Grafana**:
 | Servicio | URL | Credenciales |
 |----------|-----|--------------|
 | Prometheus | `http://localhost:9090` | — |
-| Grafana | `http://localhost:3001` | admin / blackskull17 |
+| Grafana | `http://localhost:3001` | admin / `GF_ADMIN_PASSWORD` de tu `.env` |
 
 Prometheus scrapeará `GET /metrics` cada 5 segundos automáticamente (`prometheus.yml`).
 
 > **WSL2:** el target en `prometheus.yml` debe apuntar a la IP de la interfaz `eth0` de WSL2 (no `localhost` ni el gateway de Windows). Obtenerla con `hostname -I | awk '{print $1}'` y actualizar el archivo si cambia al reiniciar.
 
 **Configurar Grafana (primera vez):**
-1. Ir a `http://localhost:3001` → login con `admin` / `blackskull17`
+1. Ir a `http://localhost:3001` → login con `admin` / el valor de `GF_ADMIN_PASSWORD` de tu `.env`
 2. El Data Source de Prometheus ya está aprovisionado automáticamente (`grafana/provisioning/datasources/datasource.yml`) — no hace falta configurarlo a mano.
 3. **Dashboards → New → Import** → pegar ID `1860` (Node.js dashboard comunitario) → Load → seleccionar **Prometheus** como fuente → **Import**
 

@@ -18,19 +18,30 @@ import 'dotenv/config';
 import cluster from 'node:cluster';
 import os     from 'node:os';
 
-const NUM_WORKERS = os.cpus().length;
+// En contenedores os.cpus() devuelve los CPUs del HOST, no del límite del contenedor.
+// Caps en 2 para evitar OOMKilled en Minikube/Docker.
+// WEB_CONCURRENCY permite sobreescribir desde el entorno (ej. Heroku, K8s).
+const NUM_WORKERS = process.env.WEB_CONCURRENCY
+  ? parseInt(process.env.WEB_CONCURRENCY, 10)
+  : Math.min(os.cpus().length, 2);
 
 if (cluster.isPrimary) {
 
-  // Vault y logger se importan dinámicamente para que no los evalúen los workers
-  const { cargarSecretosDesdeVault } = await import('./config/vault.js');
   const logger = (await import('./config/logger.js')).default;
 
-  try {
-    await cargarSecretosDesdeVault();
-  } catch (error) {
-    console.error('No se pudo cargar Vault:', error.message);
-    process.exit(1);
+  // Si MONGO_URI ya está en el entorno (K8s Secret, .env directo, etc.)
+  // salteamos Vault — los secretos ya están disponibles.
+  // En desarrollo local, Vault los inyecta. En Kubernetes, los inyecta el Secret.
+  if (process.env.MONGO_URI) {
+    logger.info('Secretos detectados en process.env — salteando Vault');
+  } else {
+    const { cargarSecretosDesdeVault } = await import('./config/vault.js');
+    try {
+      await cargarSecretosDesdeVault();
+    } catch (error) {
+      console.error('No se pudo cargar Vault:', error.message);
+      process.exit(1);
+    }
   }
 
   logger.info(`Master PID ${process.pid} — detectados ${NUM_WORKERS} CPUs lógicas`);
