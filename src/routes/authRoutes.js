@@ -76,8 +76,91 @@ export const handleGoogleCallback = (req, res, next) => {
   })(req, res, next);
 };
 
+/**
+ * @openapi
+ * /api/v1/auth/register:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Registrar nuevo usuario
+ *     description: Crea un usuario con email y contraseña. Devuelve JWT en cookie httpOnly y en el body.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Giulio Montenegro
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: giulio@example.com
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 example: "mi_password_segura"
+ *     responses:
+ *       201:
+ *         description: Usuario registrado exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Datos inválidos o email ya registrado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post('/register', register);
 
+/**
+ * @openapi
+ * /api/v1/auth/login:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Login con email y contraseña
+ *     description: Autentica al usuario con Passport Local Strategy. Devuelve JWT en cookie httpOnly y en el body.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: giulio@example.com
+ *               password:
+ *                 type: string
+ *                 example: "mi_password_segura"
+ *     responses:
+ *       200:
+ *         description: Login exitoso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Credenciales inválidas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post('/login', (req, res, next) => {
   passport.authenticate('local', (err, user, info) => {
     if (err) {
@@ -98,12 +181,99 @@ router.post('/login', (req, res, next) => {
   })(req, res, next);
 });
 
+/**
+ * @openapi
+ * /api/v1/auth/logout:
+ *   post:
+ *     tags:
+ *       - Auth
+ *     summary: Cerrar sesión
+ *     description: Invalida la sesión del servidor y limpia la cookie JWT. Requiere estar autenticado.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Sesión cerrada correctamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Sesión cerrada correctamente
+ *       401:
+ *         description: No autenticado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post('/logout', isAuthenticated, logout);
 
+/**
+ * @openapi
+ * /api/v1/auth/google/register:
+ *   get:
+ *     tags:
+ *       - Google OAuth
+ *     summary: Iniciar registro con Google
+ *     description: Redirige al flujo OAuth 2.0 de Google para crear una cuenta nueva. Abrí esta URL en el navegador.
+ *     responses:
+ *       302:
+ *         description: Redirige a Google para autorización
+ *
+ * /api/v1/auth/google/login:
+ *   get:
+ *     tags:
+ *       - Google OAuth
+ *     summary: Iniciar login con Google
+ *     description: Redirige al flujo OAuth 2.0 de Google para autenticarse. Abrí esta URL en el navegador.
+ *     responses:
+ *       302:
+ *         description: Redirige a Google para autorización
+ */
 router.get('/google/register', startGoogleOAuth('register'));
 router.get('/google/login', startGoogleOAuth('login'));
 router.get('/google', startGoogleOAuth('login'));
 
+/**
+ * @openapi
+ * /api/v1/auth/google/callback:
+ *   get:
+ *     tags:
+ *       - Google OAuth
+ *     summary: Callback de Google OAuth (no llamar directo)
+ *     description: >
+ *       Google redirige aquí después de la autorización. No llamar manualmente desde Postman.
+ *       Si recibís error 400, revisá que el Callback URL en Google Cloud coincida exactamente con
+ *       `http://localhost:3000/api/v1/auth/google/callback`.
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *         description: Código de autorización generado por Google
+ *     responses:
+ *       200:
+ *         description: Login con Google exitoso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       201:
+ *         description: Registro con Google exitoso
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Google rechazó la autorización o falta el código
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get('/google/callback', handleGoogleCallback);
 
 router.get('/google/failure', (req, res) => {

@@ -515,6 +515,209 @@ Flujo Git sugerido: ramas `feature/...` → merge a `main`.
 
 ---
 
+---
+
+## Tests funcionales
+
+Los tests cubren todos los endpoints de `adoption.router.js` usando **Vitest** + **Supertest**.
+No requieren conexión a MongoDB: el modelo `Adoption` se mockea completamente con `vi.mock`.
+
+### Instalar dependencias de desarrollo
+
+```bash
+npm install
+```
+
+### Correr los tests
+
+```bash
+npm test
+```
+
+### Correr con modo watch (re-ejecuta al guardar)
+
+```bash
+npm run test:watch
+```
+
+### Correr con reporte de cobertura
+
+```bash
+npm run test:coverage
+```
+
+### Qué valida cada grupo de tests
+
+| Grupo | Endpoint | Casos cubiertos |
+|-------|----------|-----------------|
+| `GET /api/v1/adoptions` | Listar todas | Éxito con array, array vacío, error 500 |
+| `GET /api/v1/adoptions/:id` | Obtener una | Éxito 200, no encontrado 404, ID inválido 400, error 500 |
+| `POST /api/v1/adoptions` | Crear | Éxito 201, falta `name` 400, falta `species` 400, body vacío 400, error 500 |
+| `PUT /api/v1/adoptions/:id` | Actualizar | Éxito 200, no encontrado 404, ID inválido 400, error 500 |
+| `DELETE /api/v1/adoptions/:id` | Eliminar | Éxito 200, no encontrado 404, ID inválido 400, error 500 |
+
+**Total: 20 tests** distribuidos en 5 `describe`.
+
+### Estrategia de mocks
+
+```js
+vi.mock('../src/models/Adoption.js', () => ({
+  Adoption: {
+    find:              vi.fn(),
+    findById:          vi.fn(),
+    create:            vi.fn(),
+    findByIdAndUpdate: vi.fn(),
+    findByIdAndDelete: vi.fn(),
+  },
+}));
+```
+
+Esto aísla completamente la capa de persistencia: los tests no necesitan Vault, MongoDB Atlas ni variables de entorno.
+
+### Evidencia de ejecución
+
+```
+> backend-2@1.0.0 test
+> vitest run
+
+ RUN  v3.2.7 C:/Users/Giulio's PC/Desktop/proyectos coder/backend-2
+
+ ✓ test/adoption.test.js (20 tests) 324ms
+   ✓ GET /api/v1/adoptions > debería retornar 200 con un array de adopciones 82ms
+   ✓ GET /api/v1/adoptions > debería retornar 200 con array vacío cuando no hay adopciones 26ms
+   ✓ GET /api/v1/adoptions > debería retornar 500 si la base de datos falla 11ms
+   ✓ GET /api/v1/adoptions/:id > debería retornar 200 con la adopción cuando el ID existe 11ms
+   ✓ GET /api/v1/adoptions/:id > debería retornar 404 cuando la adopción no existe 12ms
+   ✓ GET /api/v1/adoptions/:id > debería retornar 400 si el ID tiene formato inválido 9ms
+   ✓ GET /api/v1/adoptions/:id > debería retornar 500 si la base de datos falla 6ms
+   ✓ POST /api/v1/adoptions > debería retornar 201 al crear una adopción válida 59ms
+   ✓ POST /api/v1/adoptions > debería retornar 400 si falta el campo name 11ms
+   ✓ POST /api/v1/adoptions > debería retornar 400 si falta el campo species 12ms
+   ✓ POST /api/v1/adoptions > debería retornar 400 si el body está vacío 6ms
+   ✓ POST /api/v1/adoptions > debería retornar 500 si la base de datos falla 9ms
+   ✓ PUT /api/v1/adoptions/:id > debería retornar 200 al actualizar una adopción existente 8ms
+   ✓ PUT /api/v1/adoptions/:id > debería retornar 404 cuando la adopción a actualizar no existe 9ms
+   ✓ PUT /api/v1/adoptions/:id > debería retornar 400 si el ID es inválido 7ms
+   ✓ PUT /api/v1/adoptions/:id > debería retornar 500 si la base de datos falla 10ms
+   ✓ DELETE /api/v1/adoptions/:id > debería retornar 200 al eliminar una adopción existente 6ms
+   ✓ DELETE /api/v1/adoptions/:id > debería retornar 404 cuando la adopción a eliminar no existe 8ms
+   ✓ DELETE /api/v1/adoptions/:id > debería retornar 400 si el ID es inválido 6ms
+   ✓ DELETE /api/v1/adoptions/:id > debería retornar 500 si la base de datos falla 9ms
+
+ Test Files  1 passed (1)
+      Tests  20 passed (20)
+   Start at  19:16:42
+   Duration  9.30s (transform 511ms, setup 0ms, collect 6.89s, tests 324ms, environment 0ms, prepare 770ms)
+```
+
+---
+
+## Imagen Docker en DockerHub
+
+| Campo | Valor |
+|-------|-------|
+| **Imagen** | `emamontenegro/backend-2:latest` |
+| **DockerHub URL** | [https://hub.docker.com/r/emamontenegro/backend-2](https://hub.docker.com/r/emamontenegro/backend-2) |
+
+### Ejecutar la imagen desde DockerHub
+
+```bash
+docker pull emamontenegro/backend-2:latest
+
+docker run --rm -p 8080:8080 \
+  -e PORT=8080 \
+  -e MONGO_URI="mongodb+srv://user:pass@cluster.mongodb.net/backend-ii" \
+  -e JWT_SECRET="tu_secreto" \
+  -e SESSION_SECRET="tu_sesion" \
+  emamontenegro/backend-2:latest
+```
+
+### Construir la imagen localmente
+
+```bash
+docker build -t emamontenegro/backend-2:latest .
+```
+
+### Log de construcción
+
+```
+[+] Building 49.2s (11/11) FINISHED                            docker:desktop-linux
+ => [internal] load build definition from Dockerfile                           0.1s
+ => => transferring dockerfile: 1.81kB                                         0.1s
+ => [internal] load metadata for docker.io/library/node:20-alpine              2.4s
+ => [internal] load .dockerignore                                              0.0s
+ => => transferring context: 614B                                              0.0s
+ => [base 1/3] FROM docker.io/library/node:20-alpine                          0.1s
+ => [internal] load build context                                              0.2s
+ => => transferring context: 184.78kB                                          0.2s
+ => CACHED [base 2/3] WORKDIR /app                                             0.0s
+ => [base 3/3] COPY package.json package-lock.json ./                          0.1s
+ => [production 1/2] RUN npm ci --omit=dev                                    29.6s
+ => [production 2/2] COPY src ./src                                            0.7s
+ => exporting to image                                                        15.2s
+ => => naming to docker.io/emamontenegro/backend-2:latest                      0.0s
+ => => unpacking to docker.io/emamontenegro/backend-2:latest                   4.7s
+```
+
+### Subir a DockerHub
+
+```bash
+docker login
+docker push emamontenegro/backend-2:latest
+```
+
+```
+The push refers to repository [docker.io/emamontenegro/backend-2]
+3f615a0f80c8: Pushed
+581b3b069030: Pushed
+528dc115367a: Pushed
+latest: digest: sha256:33dbfda83b86f5170243f1affa62e65dcb2696e44050732e7ae350026d5772e2 size: 856
+```
+
+### Escaneo básico de seguridad
+
+```bash
+docker scout quickview emamontenegro/backend-2:latest
+```
+
+---
+
+## Estructura del proyecto (actualizada)
+
+```
+backend-2/
+├── scripts/
+│   └── createAdmin.js
+├── src/
+│   ├── app.js
+│   ├── server.js
+│   ├── config/           (vault, logger, db, passport, session, metrics, swagger)
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   ├── profileController.js
+│   │   └── adoptionController.js   ← nuevo
+│   ├── middlewares/
+│   │   └── auth.js
+│   ├── models/
+│   │   ├── User.js
+│   │   └── Adoption.js             ← nuevo
+│   ├── routes/
+│   │   ├── index.js
+│   │   ├── authRoutes.js
+│   │   ├── protectedRoutes.js
+│   │   └── adoption.router.js      ← nuevo
+│   ├── strategies/
+│   └── utils/
+├── test/
+│   └── adoption.test.js            ← nuevo
+├── Dockerfile
+├── docker-compose.yml
+├── docker-compose.dev.yml
+└── package.json
+```
+
+---
+
 ## Autor
 
 Emanuel Montenegro — 

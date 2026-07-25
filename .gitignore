@@ -29,6 +29,9 @@ desktop.ini
 # Cobertura de tests
 coverage/
 
-# Logs de producción (Winston)
+# Logs de producción
 logs/
 *.log
+
+# Swagger — generado automáticamente al arrancar la app
+swagger.yaml

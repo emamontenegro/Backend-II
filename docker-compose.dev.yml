@@ -1,0 +1,65 @@
+# ============================================================
+# docker-compose.dev.yml — Entorno de DESARROLLO local
+#
+# DIFERENCIA CON manifest_kubernetes.yaml
+# ──────────────────────────────────────────────────────────
+# | docker-compose.dev.yml  | manifest_kubernetes.yaml     |
+# |-------------------------|------------------------------|
+# | Desarrollo día a día    | Staging / Producción         |
+# | Live-reload con nodemon | 4 réplicas + rolling update  |
+# | 1 contenedor            | Alta disponibilidad          |
+# | Variables en .env       | Secrets de Kubernetes        |
+# | Levanta en segundos     | Clúster real (Minikube/EKS)  |
+#
+# FLUJO DE TRABAJO:
+#   Codear → docker-compose.dev.yml (rápido, live-reload)
+#   Deployar → manifest_kubernetes.yaml (robusto, escalable)
+#
+# CÓMO USARLO:
+#   # 1. Levantar infraestructura (Vault, Prometheus, Grafana)
+#   docker compose up -d
+#
+#   # 2. Levantar la app en modo desarrollo (se combina con el anterior)
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up app
+#
+#   # O levantar todo junto de una sola vez:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+# ============================================================
+
+services:
+
+  app:
+    build:
+      context: .
+      target: development          # Usa el stage "development" del Dockerfile
+    container_name: backend-app-dev
+    restart: unless-stopped
+
+    # ── Live-reload ─────────────────────────────────────────
+    # El volumen mapea tu código local dentro del contenedor.
+    # Cada vez que guardás un archivo .js en src/, node --watch
+    # detecta el cambio y reinicia el proceso automáticamente.
+    volumes:
+      - ./src:/app/src             # Código fuente → cambios en tiempo real
+      - /app/node_modules          # Volumen anónimo: preserva los node_modules del contenedor
+
+    # ── Puertos ─────────────────────────────────────────────
+    ports:
+      - "3000:3000"                # localhost:3000 → contenedor:3000
+
+    # ── Variables de entorno ────────────────────────────────
+    # Lee las variables del archivo .env del proyecto.
+    # Las variables sensibles (VAULT_TOKEN, etc.) vienen de .env,
+    # nunca hardcodeadas acá.
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development        # Sobreescribe cualquier valor del .env
+      PORT: 3000
+
+    # ── Conexión a Vault ────────────────────────────────────
+    # La app se conecta al contenedor "vault-backend" que levanta
+    # docker-compose.yml. Ambos comparten la misma red de Docker
+    # cuando se combinan con el flag -f.
+    depends_on:
+      - vault

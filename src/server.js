@@ -10,6 +10,7 @@ import compression from 'compression';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
+import swaggerUi from 'swagger-ui-express';
 import passport from './config/passport.js';
 import sessionConfig from './config/sessionConfig.js';
 import connectDB from './config/db.js';
@@ -17,6 +18,7 @@ import logger from './config/logger.js';
 import { register, metricsMiddleware } from './config/metrics.js';
 import { logGoogleOAuthStatus } from './config/googleOAuth.js';
 import { isConfigRoute, dispatchConfigRoute } from './config/processConfig.js';
+import swaggerSpec from './config/swagger.js';
 import apiRoutes from './routes/index.js';
 import { handleGoogleCallback } from './routes/authRoutes.js';
 
@@ -54,6 +56,13 @@ app.use(session(sessionConfig));
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Swagger UI — documentación interactiva de la API
+// Express 5 no acepta arrays en app.use(), swaggerUi.serve es un array → spread obligatorio
+app.use('/api-docs', ...swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customSiteTitle: 'Backend 3 Course API — Docs',
+  swaggerOptions: { persistAuthorization: true },
+}));
+
 // Endpoint de métricas para Prometheus / Grafana
 app.get('/metrics', async (req, res) => {
   try {
@@ -73,6 +82,7 @@ app.get('/', (req, res) => {
     ok: true,
     message: 'API Backend-II',
     endpoints: {
+      docs:           'GET /api-docs',
       metrics:        'GET /metrics',
       config:         'GET/POST /config',
       auth:           '/api/v1/auth',
@@ -108,6 +118,7 @@ server.listen(PORT, '0.0.0.0', () => {
   const pid = process.pid;
   const wid = cluster.worker?.id ?? 'primary';
   logger.info({ pid, wid }, `Servidor corriendo en el puerto ${PORT}`);
+  logger.info({ pid, wid }, `API Docs:  http://localhost:${PORT}/api-docs`);
   logger.info({ pid, wid }, `Métricas:  GET http://localhost:${PORT}/metrics`);
   logger.info({ pid, wid }, `Config:    GET/POST http://localhost:${PORT}/config`);
   logger.info({ pid, wid }, `Auth API:  http://localhost:${PORT}/api/v1`);

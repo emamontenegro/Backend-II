@@ -1,5 +1,34 @@
 import { User } from '../models/User.js';
 
+// ─── Typedefs JSDoc ──────────────────────────────────────────────────────────
+
+/**
+ * Documento de usuario de MongoDB (sin contraseña en respuestas).
+ *
+ * @typedef  {Object} AuthUser
+ * @property {string} _id      - ObjectId de MongoDB
+ * @property {string} username - Nombre de usuario único
+ * @property {string} email    - Dirección de email
+ * @property {string} role     - Rol del usuario: 'user' | 'admin'
+ * @property {string} provider - Proveedor de autenticación: 'local' | 'google'
+ */
+
+/**
+ * Request de Express enriquecido con el usuario autenticado.
+ *
+ * @typedef {import('express').Request & { user: AuthUser }} AuthRequest
+ */
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Devuelve el perfil del usuario autenticado.
+ * Obtiene los datos frescos desde MongoDB (sin la contraseña).
+ *
+ * @param {AuthRequest}                req - req.user.userId seteado por isAuthenticated
+ * @param {import('express').Response} res - 200 con datos del perfil / 401 si no se encuentra
+ * @returns {Promise<void>}
+ */
 export const getProfile = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-password');
@@ -21,6 +50,14 @@ export const getProfile = async (req, res) => {
   }
 };
 
+/**
+ * Panel de administración — devuelve la lista completa de usuarios.
+ * Solo accesible con rol `admin` (verificado por requireRole en la ruta).
+ *
+ * @param {AuthRequest}                req - req.user.role debe ser 'admin'
+ * @param {import('express').Response} res - 200 con array de usuarios (sin passwords)
+ * @returns {Promise<void>}
+ */
 export const getAdmin = async (req, res) => {
   try {
     const users = await User.find({}, '-password');
