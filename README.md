@@ -10,7 +10,7 @@ API REST en Node.js con **Passport Local**, **Google OAuth 2.0**, **JWT**, **coo
 |---------|-------------|
 | **Objetivo** | Autenticación híbrida: credenciales locales + OAuth Google, con estado de sesión en servidor, API protegida por JWT y roles, y observabilidad con logs estructurados y métricas Prometheus. |
 | **Stack** | Express 5, Mongoose, Passport, bcrypt, jsonwebtoken, express-session, connect-mongo, node-vault, pino, prom-client, compression |
-| **Base de datos** | MongoDB (Atlas o local). Colecciones: `users`, `sessions` |
+| **Base de datos** | MongoDB (Atlas o local). Colecciones: `users`, `sessions`, `adoptions` |
 | **Secretos** | HashiCorp Vault (`secret/data/backend`) con fallback a `.env` |
 | **Roles** | `user` (default), `admin` |
 | **Prefijo API** | `/api/v1` |
@@ -27,41 +27,49 @@ API REST en Node.js con **Passport Local**, **Google OAuth 2.0**, **JWT**, **coo
 ## Estructura del proyecto
 
 ```
-backend-2/
+backend-3/
 ├── scripts/
-│   └── createAdmin.js          # Crea/actualiza usuario admin de prueba
+│   └── createAdmin.js              # Crea/actualiza usuario admin de prueba
 ├── src/
-│   ├── app.js                  # Entry: dotenv → Vault → import dinámico de server.js
-│   ├── server.js               # http nativo + Express (mismo PORT)
+│   ├── app.js                      # Entry: dotenv → Vault → cluster workers
+│   ├── server.js                   # HTTP nativo + Express (mismo PORT)
 │   ├── config/
-│   │   ├── logger.js           # Pino: dev (pino-pretty) vs prod (JSON estructurado)
-│   │   ├── metrics.js          # prom-client: métricas default + histograma HTTP
-│   │   ├── vault.js            # node-vault: inyecta secretos en process.env
-│   │   ├── db.js               # Conexión Mongoose
-│   │   ├── passport.js         # Registro de estrategias + serialize/deserialize
-│   │   ├── sessionConfig.js    # express-session + MongoStore
-│   │   ├── googleOAuth.js      # Lectura/validación vars Google OAuth
-│   │   └── processConfig.js    # GET/POST /config (process.env.CONFIG_LEVEL)
-│   ├── strategies/
-│   │   ├── localStrategy.js    # Passport Local (username/password)
-│   │   └── googleStrategy.js   # Passport Google (register vs login)
-│   ├── models/
-│   │   └── User.js             # Usuario: password, googleSubjectId, role
+│   │   ├── db.js                   # Conexión Mongoose
+│   │   ├── googleOAuth.js          # Lectura/validación vars Google OAuth
+│   │   ├── logger.js               # Pino: dev (pino-pretty) vs prod (JSON)
+│   │   ├── metrics.js              # prom-client: métricas default + histograma HTTP
+│   │   ├── passport.js             # Registro de estrategias + serialize/deserialize
+│   │   ├── processConfig.js        # GET/POST /config (process.env.CONFIG_LEVEL)
+│   │   ├── sessionConfig.js        # express-session + MongoStore
+│   │   ├── swagger.js              # Swagger / OpenAPI spec
+│   │   └── vault.js                # node-vault: inyecta secretos en process.env
 │   ├── controllers/
-│   │   ├── authController.js   # register, login response, logout, session
-│   │   └── profileController.js # profile, admin panel
+│   │   ├── adoptionController.js   # CRUD adopciones
+│   │   ├── authController.js       # register, login, logout, session
+│   │   └── profileController.js    # profile, admin panel
 │   ├── middlewares/
-│   │   └── auth.js             # isAuthenticated, requireRole (401/403)
+│   │   └── auth.js                 # isAuthenticated, requireRole (401/403)
+│   ├── models/
+│   │   ├── Adoption.js             # Adopción: name, species, age, description, status
+│   │   └── User.js                 # Usuario: password, googleSubjectId, role
 │   ├── routes/
-│   │   ├── index.js            # Agrupa /auth y rutas protegidas
-│   │   ├── authRoutes.js       # auth, OAuth, callback
-│   │   └── protectedRoutes.js  # /session, /profile, /admin
+│   │   ├── adoption.router.js      # /adoptions CRUD
+│   │   ├── authRoutes.js           # /auth, OAuth, callback
+│   │   ├── index.js                # Agrupa todas las rutas
+│   │   └── protectedRoutes.js      # /session, /profile, /admin
+│   ├── strategies/
+│   │   ├── googleStrategy.js       # Passport Google (register vs login)
+│   │   └── localStrategy.js        # Passport Local (username/password)
 │   └── utils/
-│       └── authToken.js        # JWT, cookie authToken, expiración
-├── logs/                       # Generada en prod: error.log + combined.log (gitignored)
-├── .env.example                # Solo bootstrap: PORT, NODE_ENV, VAULT_URL, VAULT_TOKEN
-├── Dockerfile                  # node:20-alpine
-├── Backend-2-API.postman_collection.json
+│       └── authToken.js            # JWT, cookie authToken, expiración
+├── test/
+│   └── adoption.test.js            # 20 tests funcionales — Vitest + Supertest
+├── .dockerignore
+├── .env.example                    # Solo bootstrap: PORT, NODE_ENV, VAULT_URL, VAULT_TOKEN
+├── docker-compose.dev.yml
+├── docker-compose.yml
+├── Dockerfile                      # Multi-stage: node:20-alpine
+├── Backend-3-API.postman_collection.json
 ├── package.json
 └── README.md
 ```
@@ -239,7 +247,7 @@ Imagen basada en `node:20-alpine`. El servidor usa **`http` nativo** + Express e
 ### Build
 
 ```bash
-docker build -t backend-2 .
+docker build -t emamontenegro/backend-2:latest .
 ```
 
 ### Run — solo `/config` (sin MongoDB)
@@ -248,7 +256,7 @@ docker build -t backend-2 .
 docker run --rm -p 8080:8080 \
   -e PORT=8080 \
   -e CONFIG_LEVEL=high \
-  backend-2
+  emamontenegro/backend-2:latest
 ```
 
 Probar:
@@ -265,13 +273,13 @@ curl http://localhost:8080/config
 docker run --rm -p 8080:8080 \
   -e PORT=8080 \
   -e CONFIG_LEVEL=high \
-  -e MONGO_URI="mongodb+srv://user:pass@cluster.mongodb.net/backend-ii" \
+  -e MONGO_URI="mongodb+srv://user:pass@cluster.mongodb.net/backend-iii" \
   -e JWT_SECRET="tu_secreto" \
   -e SESSION_SECRET="tu_sesion" \
   -e GOOGLE_CLIENT_ID="..." \
   -e GOOGLE_CLIENT_SECRET="..." \
   -e GOOGLE_CALLBACK_URL="http://localhost:8080/api/v1/auth/google/callback" \
-  backend-2
+  emamontenegro/backend-2:latest
 ```
 
 > **Nota:** No se copia `.env` a la imagen (`.dockerignore`). Pasá secretos con `-e` o `--env-file .env` en desarrollo. Si no definís `VAULT_URL`/`VAULT_TOKEN` en el contenedor, la app saltea Vault y usa directamente esas variables (fallback).
@@ -439,7 +447,7 @@ Enviar header: `Authorization: Bearer <token>` o cookie `authToken`.
 
 ## Pruebas con Postman
 
-Importar `Backend-2-API.postman_collection.json`. Carpetas: **Health**, **Auth**, **Google OAuth**, **Session & Protected**, **Config**.
+Importar `Backend-3-API.postman_collection.json`. Carpetas: **Health**, **Auth**, **Google OAuth**, **Session & Protected**, **Config**.
 
 Orden sugerido:
 
@@ -512,8 +520,6 @@ Prometheus scrapeará `GET /metrics` cada 5 segundos automáticamente (`promethe
 - `docs:` documentación
 
 Flujo Git sugerido: ramas `feature/...` → merge a `main`.
-
----
 
 ---
 
@@ -678,42 +684,6 @@ latest: digest: sha256:33dbfda83b86f5170243f1affa62e65dcb2696e44050732e7ae350026
 
 ```bash
 docker scout quickview emamontenegro/backend-2:latest
-```
-
----
-
-## Estructura del proyecto (actualizada)
-
-```
-backend-2/
-├── scripts/
-│   └── createAdmin.js
-├── src/
-│   ├── app.js
-│   ├── server.js
-│   ├── config/           (vault, logger, db, passport, session, metrics, swagger)
-│   ├── controllers/
-│   │   ├── authController.js
-│   │   ├── profileController.js
-│   │   └── adoptionController.js   ← nuevo
-│   ├── middlewares/
-│   │   └── auth.js
-│   ├── models/
-│   │   ├── User.js
-│   │   └── Adoption.js             ← nuevo
-│   ├── routes/
-│   │   ├── index.js
-│   │   ├── authRoutes.js
-│   │   ├── protectedRoutes.js
-│   │   └── adoption.router.js      ← nuevo
-│   ├── strategies/
-│   └── utils/
-├── test/
-│   └── adoption.test.js            ← nuevo
-├── Dockerfile
-├── docker-compose.yml
-├── docker-compose.dev.yml
-└── package.json
 ```
 
 ---
